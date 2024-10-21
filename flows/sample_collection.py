@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 from prefect import flow
+from tasks.sample_collection import collect_samples_from_directory
 from tasks.lib.config import Config
 
 
@@ -19,6 +20,7 @@ if __name__ == "__main__":
     parser.add_argument("project_fp", type=str, help="Filepath to the project")
     args = parser.parse_args()
     config = Config(Path(args.project_fp).absolute() / "config.yaml")
+    print(config.get_flow("sample_collection"))
 
     sample_collection_flow(project_fp=Path(args.project_fp).absolute())
     # sample_collection_flow.visualize()

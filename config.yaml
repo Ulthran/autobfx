@@ -1,5 +1,5 @@
 flows:
-  - name: sample_collection
+  sample_collection:
     #entrypoint: path/to/your/script.py:flow_function
     #work_pool_name: default
     parameters:
