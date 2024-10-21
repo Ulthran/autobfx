@@ -2,6 +2,7 @@ import os
 import subprocess as sp
 from pathlib import Path
 from prefect import task
+from prefect_shell import ShellOperation
 
 
 @task
@@ -32,7 +33,7 @@ def run_trimmomatic(
         raise FileNotFoundError(f"Adapter template not found: {adapter_template}")
 
     # Create command
-    cmd = ["conda", "activate", "trimmomatic", "&&", "trimmomatic"]
+    cmd = ["trimmomatic"]
     cmd += ["PE"] if paired_end else ["SE"]
     cmd += ["-threads", str(threads)]
     cmd += ["-phred33"]
@@ -54,8 +55,17 @@ def run_trimmomatic(
     cmd += ["MINLEN:" + str(minlen)]
 
     # Run command
+    shell_output = ShellOperation(
+        commands=[
+            f"source {os.environ.get('CONDA_PREFIX', '')}/etc/profile.d/conda.sh",
+            "conda activate trimmomatic",
+            " ".join(cmd),
+        ]
+    ).run()
+    print(shell_output)
     with open(log_fp, "w") as f:
         # Consider using sp.Popen for finer control over running process
-        sp.run(cmd, shell=True, executable="/bin/bash", stdout=f, stderr=f)
+        # sp.run(cmd, shell=True, executable="/bin/bash", stdout=f, stderr=f)
+        f.writelines(shell_output)
 
     return output_fp
