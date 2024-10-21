@@ -1,0 +1,15 @@
+#! /bin/sh
+
+# NOTE: This script assumes it is being run from the autobfx directory
+# TODO: Add a check for this
+
+### Initialize a new project ###
+
+# Create a new project directory
+echo "Creating a new project in $1..."
+mkdir $1
+
+# Create config
+echo "name: $(basename $1)" > $1/config.yaml
+echo "project_fp: $(realpath $1)" >> $1/config.yaml
+cat config.yaml >> $1/config.yaml

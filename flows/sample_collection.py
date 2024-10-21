@@ -1,22 +1,34 @@
+import argparse
 from pathlib import Path
 from prefect import flow
-from tasks.lib.project import Project
+from tasks.lib.config import Config
 
 
 @flow(name="sample_collection", log_prints=True)
 def sample_collection_flow(
-    project: Project = Project(Path(".")),
+    project_fp: Path,
     files: list[Path] = [],
     directories: list[Path] = [],
     uris: list[str] = [],
 ):
-    # Need to determine how we want to organize projects
-    # Do we want each project to be a directory? Then it can house the collected samples
-    # and the sample metadata (which can be as complicated or not as the project demands)
-
-    print("HEY")
+    print(f"Collecting samples for project: {project_fp}")
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Collect samples for a project")
+    parser.add_argument("project_fp", type=str, help="Filepath to the project")
+    args = parser.parse_args()
+    config = Config(Path(args.project_fp).absolute() / "config.yaml")
+
+    sample_collection_flow(project_fp=Path(args.project_fp).absolute())
     # sample_collection_flow.visualize()
-    sample_collection_flow.deploy(name="sample_collection", work_pool_name="default")
+    # flow.from_source(
+    #    source=str(Path(__file__).parent),
+    #    entrypoint="sample_collection.py:sample_collection_flow",
+    # ).deploy(
+    #    name="sample_collection",
+    #    work_pool_name="default",
+    #    parameters=dict(
+    #        project_fp=args.project_fp,
+    #    ),
+    # )

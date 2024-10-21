@@ -1,0 +1,20 @@
+#! /bin/sh
+
+### Start the server ###
+
+nohup prefect server start > autobfx_server_output.log 2>&1 &
+# Set the API URL (usually something like http://127.0.0.1:4200/api)
+$(grep "prefect config set PREFECT_API_URL=" autobfx_server_output.log)
+
+echo "Prefect server started"
+
+### Start the default work pool with worker ###
+
+# Check that the default pool exists and create it if it doesn't
+#if [ $(prefect work-pool ls | grep "default" | wc -l) -eq 0 ]; then
+#    prefect work-pool create --type process default
+#    echo "Default work pool created"
+#fi
+
+#nohup prefect worker start --pool default > autobfx_default_worker_output.log 2>&1 &
+#echo "Default worker started"

@@ -1,0 +1,20 @@
+#! /bin/sh
+
+echo "Careful! This script will stop ALL workers and the server. Check the dashboard and with anyone else running jobs through AutoBfx before doing this. Are you sure you want to continue? (y/n)"
+read answer
+if [ "$answer" != "${answer#[Yy]}" ] ;then
+    echo "Stopping all workers and the server..."
+else
+    echo "Exiting without stopping anything."
+    exit 0
+fi
+
+### Stop the default work pool worker(s) ###
+
+#kill $(pgrep -f "prefect worker")
+
+### Stop the server ###
+
+kill $(pgrep -f "prefect server")
+
+# If this doesn't work, try `kill -9 $(pgrep -f "prefect server")` instead
