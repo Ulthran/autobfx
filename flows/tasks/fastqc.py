@@ -2,6 +2,6 @@ from prefect import task
 
 
 @task
-def fastqc():
+def run_fastqc():
     print("Running FastQC")
     return "fastqc"
