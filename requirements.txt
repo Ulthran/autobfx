@@ -1,2 +1,2 @@
-prefect==3
+prefect==3.*
 prefect-shell

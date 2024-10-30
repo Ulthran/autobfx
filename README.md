@@ -4,6 +4,21 @@
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/5c72b0d1e63e4efd8e6fcca22708b506)](https://app.codacy.com/gh/Ulthran/autobfx/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![codecov](https://codecov.io/gh/Ulthran/autobfx/graph/badge.svg?token=P8XruywW8Q)](https://codecov.io/gh/Ulthran/autobfx)
 
+## NOTES IN DEV
+
+Run a flow directly: `python flows/flow_name.py /path/to/project/`
+Supported workflows:
+-  Running a whole pipeline (e.g. qc & decontam) on a set of samples (run pipeline flow)
+-  Running a whole pipeline on a single sample (run pipeline flow with defined `samples` in config)
+-  Running a single step on a set of samples (run flow)
+-  Running a single step on a single sample (run flow with defined `samples` in config)
+
+## TODO
+
+-  Conda manager (docker should be easy, singularity might not be)
+  -  Do we not bother? Just let users manage this
+-  DAG-esque thing to know what work to do and not to do (marker files?)
+
 ## Getting started
 
 After `git clone`ing the repo, run `python -m venv env/` to create a virtual environment, `source env/bin/activate` to activate it, and `pip install -r requirements.txt` to install the necessary packages. Then open up one terminal and start the prefect server with `prefect server start` (it'll show a message and then keep running until you cancel it, leave it running until you're done with AutoBfx), open another terminal and start a local work pool with `prefect work-pool create default` (creating a work pool named `default`) then run  (again, leave it running), and open a third terminal 

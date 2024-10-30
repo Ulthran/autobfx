@@ -1,5 +1,4 @@
 import os
-import subprocess as sp
 from pathlib import Path
 from prefect import task
 from prefect_shell import ShellOperation
@@ -25,8 +24,15 @@ def run_trimmomatic(
     if paired_end:
         input_pair_fp = Path(str(input_fp).replace("_R1", "_R2"))
         output_pair_fp = Path(str(output_fp).replace("_R1", "_R2"))
-        output_unpair_1_fp = Path(str(output_fp).replace("_R1", "_unpair_R1"))
-        output_unpair_2_fp = Path(str(output_fp).replace("_R1", "_unpair_R2"))
+
+        extra_output_fp = output_fp.parent / "extra"
+        extra_output_fp.mkdir(exist_ok=True)
+        output_unpair_1_fp = extra_output_fp / str(output_fp.name).replace(
+            "_R1", "_unpair_R1"
+        )
+        output_unpair_2_fp = extra_output_fp / str(output_pair_fp.name).replace(
+            "_R2", "_unpair_R2"
+        )
         if not input_pair_fp.exists():
             raise FileNotFoundError(f"Paired-end file not found: {input_pair_fp}")
     if not adapter_template:
@@ -62,7 +68,7 @@ def run_trimmomatic(
             " ".join(cmd),
         ]
     ).run()
-    print(shell_output)
+
     with open(log_fp, "w") as f:
         # Consider using sp.Popen for finer control over running process
         # sp.run(cmd, shell=True, executable="/bin/bash", stdout=f, stderr=f)
