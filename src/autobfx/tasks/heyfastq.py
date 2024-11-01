@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from prefect import task
 from prefect_shell import ShellOperation

@@ -1,8 +1,5 @@
 import argparse
-import os
-import yaml
 from pathlib import Path
-from autobfx import __version__
 
 
 def main(argv):

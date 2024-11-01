@@ -1,5 +1,4 @@
 import argparse
-import os
 from pathlib import Path
 from prefect import flow
 from autobfx.tasks.trimmomatic import run_trimmomatic
