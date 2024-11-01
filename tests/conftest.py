@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from src.autobfx.lib.config import Config, config_to_yaml
+from src.autobfx.lib.config import Config
 from src.autobfx.scripts.init import main as Init
 
 
@@ -10,6 +10,10 @@ def data_fp() -> Path:
 
 
 @pytest.fixture()
-def test_project_fp(data_fp) -> Path:
-    project_fp = data_fp / "projects" / "test"
-    Init(str(project_fp))
+def test_project_fp(data_fp, tmp_path) -> Path:
+    project_fp = tmp_path / "projects" / "test"
+    config = Init(str(project_fp))
+    config.flows["trimmomatic"].input = data_fp / "reads"
+    config.config_to_yaml(project_fp / "config.yaml")
+
+    return project_fp

@@ -43,6 +43,9 @@ def main(argv):
 
     os.makedirs(project_fp, exist_ok=True)
 
-    default_config(project_fp).config_to_yaml(config_fp)
+    config = default_config(project_fp)
+    config.config_to_yaml(config_fp)
 
     print(f"Created project at {project_fp}")
+
+    return config
