@@ -11,7 +11,7 @@ fi
 
 ### Stop the default work pool worker(s) ###
 
-#kill $(pgrep -f "prefect worker")
+kill $(pgrep -f "prefect worker")
 
 ### Stop the server ###
 

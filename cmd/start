@@ -13,10 +13,10 @@ echo "Prefect server started"
 ### Start the default work pool with worker ###
 
 # Check that the default pool exists and create it if it doesn't
-#if [ $(prefect work-pool ls | grep "default" | wc -l) -eq 0 ]; then
-#    prefect work-pool create --type process default
-#    echo "Default work pool created"
-#fi
+if [ $(prefect work-pool ls | grep "default" | wc -l) -eq 0 ]; then
+    prefect work-pool create --type process --limit 5 default
+    echo "Default work pool created"
+fi
 
-#nohup prefect worker start --pool default > autobfx_default_worker_output.log 2>&1 &
-#echo "Default worker started"
+nohup prefect worker start --pool default --name default-worker > autobfx_default_worker_output.log 2>&1 &
+echo "Default worker started"

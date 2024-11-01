@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# TODO: Rename (easybfx?? seems kinda bad...)
+name = "autobfx"
+dynamic = ["version"]
+description = "A tool for easier bioinformatics"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    {name = "Charlie Bushman", email = "ctbushman@gmail.com" }
+]
+maintainers = [
+    {name = "Charlie Bushman", email = "ctbushman@gmail.com" }
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = [
+    "prefect",
+    "prefect-shell",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "pytest"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Ulthran/autobfx"
+"Bug Reports" = "https://github.com/Ulthran/autobfx/issues"
+
+[project.scripts]
+#sample = "sample:main"
+
+[tool.setuptools]
+package-data = {"config" = ["config.yaml"], "envs" = ["envs/*.yaml"], "cmd" = ["cmd/*"]}
+
+[tool.setuptools.dynamic]
+version = {attr = "autobfx.__version__"}

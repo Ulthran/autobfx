@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from prefect import task
 from prefect_shell import ShellOperation
+from autobfx.lib.utils import check_already_done, mark_as_done
 
 
 @task
@@ -9,6 +10,7 @@ def run_trimmomatic(
     input_fp: Path,
     output_fp: Path,
     log_fp: Path,
+    env: str,
     paired_end: bool = True,
     threads: int = 1,
     adapter_template: Path = None,
@@ -19,6 +21,8 @@ def run_trimmomatic(
     minlen: int = 36,
 ) -> Path:
     # Check files
+    if check_already_done(output_fp):
+        return output_fp
     if not input_fp.exists():
         raise FileNotFoundError(f"Input file not found: {input_fp}")
     if paired_end:
@@ -36,6 +40,13 @@ def run_trimmomatic(
         if not input_pair_fp.exists():
             raise FileNotFoundError(f"Paired-end file not found: {input_pair_fp}")
     if not adapter_template:
+        adapter_template = (
+            Path(os.environ.get("CONDA_PREFIX", ""))
+            / "envs"
+            / env
+            / "share/trimmomatic/adapters/NexteraPE-PE.fa"
+        )
+    if not adapter_template.exists():
         raise FileNotFoundError(f"Adapter template not found: {adapter_template}")
 
     # Create command
@@ -64,7 +75,7 @@ def run_trimmomatic(
     shell_output = ShellOperation(
         commands=[
             f"source {os.environ.get('CONDA_PREFIX', '')}/etc/profile.d/conda.sh",
-            "conda activate trimmomatic",
+            f"conda activate {env}",
             " ".join(cmd),
         ]
     ).run()
@@ -73,5 +84,7 @@ def run_trimmomatic(
         # Consider using sp.Popen for finer control over running process
         # sp.run(cmd, shell=True, executable="/bin/bash", stdout=f, stderr=f)
         f.writelines(shell_output)
+
+    mark_as_done(output_fp)
 
     return output_fp

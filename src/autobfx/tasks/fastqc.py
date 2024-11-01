@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from prefect import task
 from prefect_shell import ShellOperation
+from autobfx.lib.utils import check_already_done, mark_as_done
 
 
 @task
@@ -12,6 +13,8 @@ def run_fastqc(
     paired_end: bool = True,
 ) -> Path:
     # Check files
+    if check_already_done(output_fp):
+        return output_fp
     if not input_fp.exists():
         raise FileNotFoundError(f"Input file not found: {input_fp}")
     if paired_end:
@@ -21,7 +24,7 @@ def run_fastqc(
 
     # Create command
     cmd = ["fastqc"]
-    cmd += ["-o", str(output_fp)]
+    cmd += ["-o", str(output_fp.parent)]
     cmd += [str(input_fp), str(input_pair_fp)] if paired_end else [str(input_fp)]
     cmd += ["-extract"]
 
@@ -38,5 +41,7 @@ def run_fastqc(
         # Consider using sp.Popen for finer control over running process
         # sp.run(cmd, shell=True, executable="/bin/bash", stdout=f, stderr=f)
         f.writelines(shell_output)
+
+    mark_as_done(output_fp)
 
     return output_fp

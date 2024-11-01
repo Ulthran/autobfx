@@ -8,10 +8,10 @@
 
 Run a flow directly: `python flows/flow_name.py /path/to/project/`
 Supported workflows:
--  Running a whole pipeline (e.g. qc & decontam) on a set of samples (run pipeline flow)
--  Running a whole pipeline on a single sample (run pipeline flow with defined `samples` in config)
--  Running a single step on a set of samples (run flow)
--  Running a single step on a single sample (run flow with defined `samples` in config)
+-  Running a whole pipeline (e.g. qc & decontam) on a set of samples (run pipeline flow) `python /path/to/qc.py projects/example`
+-  Running a whole pipeline on a single sample (run pipeline flow with defined `samples`) `python /path/to/qc.py projects/example --samples tests/data/reads/LONG_R1.fastq.gz`
+-  Running a single step on a set of samples (run flow) `python /path/to/fastqc.py projects/example`
+-  Running a single step on a single sample (run flow with defined `samples`) `python /path/to/fastqc.py projects/example --samples tests/data/reads/LONG_R1.fastq.gz`
 
 ## TODO
 
