@@ -53,7 +53,7 @@ jobs:
           python -m pip install .[dev]
 
       - name: Run tests
-        run: pytest -s -vvvv -l --tb=long tests/
+        run: python -m pytest -s -vvvv -l --tb=long tests/
 
   lint:
     name: Lint Code Base
