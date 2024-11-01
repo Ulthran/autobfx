@@ -21,8 +21,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest pytest-cov
-          python -m pip install -r requirements.txt
+          python -m pip install .[dev]
 
       - name: Run tests and collect coverage
         run: pytest --cov --junitxml=junit.xml -o junit_family=legacy tests/
@@ -38,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.12', '3.11', '3.10', '3.9']
+        python-version: ['3.12', '3.11', '3.10', '3.9', '3.8']
     runs-on: ubuntu-latest
 
     steps:
@@ -51,11 +50,10 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest
-          python -m pip install -r requirements.txt
+          python -m pip install .[dev]
 
       - name: Run tests
-        run: pytest -s -vvvv -l --tb=long tests
+        run: pytest -s -vvvv -l --tb=long tests/
 
   lint:
     name: Lint Code Base

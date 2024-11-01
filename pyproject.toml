@@ -36,7 +36,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "black",
-    "pytest"
+    "pytest",
+    "pytest-cov",
 ]
 
 [project.urls]
