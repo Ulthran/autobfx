@@ -1,3 +1,4 @@
+version: 0.0.0
 name: "example"
 project_fp: "/home/ctbus/Penn/autobfx/autobfx/projects/example"
 paired_end: true
