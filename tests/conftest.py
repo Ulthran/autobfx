@@ -1,7 +1,6 @@
 import pytest
 from pathlib import Path
-from src.autobfx.lib.config import Config
-from src.autobfx.scripts.init import main as Init
+from autobfx.scripts.init import main as Init
 
 
 @pytest.fixture()
