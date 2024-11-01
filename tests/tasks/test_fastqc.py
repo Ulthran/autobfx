@@ -1,12 +1,13 @@
-from src.autobfx.tasks.fastqc import run_fastqc
+from pathlib import Path
+from autobfx.tasks.fastqc import run_fastqc
 
 
-def test_fastqc(data_fp, test_project_fp):
+def test_fastqc(data_fp: Path, dummy_project_fp: Path):
     assert (
         run_fastqc.fn(
             input_fp=data_fp / "reads",
-            output_fp=test_project_fp / "fastqc",
-            log_fp=test_project_fp / "logs",
+            output_fp=dummy_project_fp / "fastqc",
+            log_fp=dummy_project_fp / "logs",
         )
-        == test_project_fp / "fastqc"
+        == dummy_project_fp / "fastqc"
     )
