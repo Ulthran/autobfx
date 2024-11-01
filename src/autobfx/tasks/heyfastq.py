@@ -29,8 +29,16 @@ def run_heyfastq(
     # TODO: Just use the python API instead of the shell command
     # Create command
     cmd = ["heyfastq", sub_cmd]
-    cmd += ["--input", str(input_fp), str(input_pair_fp)] if paired_end else ["--input", str(input_fp)]
-    cmd += ["--output", str(output_fp), str(output_pair_fp)] if paired_end else ["--output", str(output_fp)]
+    cmd += (
+        ["--input", str(input_fp), str(input_pair_fp)]
+        if paired_end
+        else ["--input", str(input_fp)]
+    )
+    cmd += (
+        ["--output", str(output_fp), str(output_pair_fp)]
+        if paired_end
+        else ["--output", str(output_fp)]
+    )
     cmd += ["--min-kscore", str(min_kscore)]
 
     # Run command

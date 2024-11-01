@@ -8,8 +8,12 @@ from autobfx.lib.utils import gather_samples, get_input_fp, get_log_fp, get_outp
 
 
 NAME = "trimmomatic"
+
+
 @flow(name=NAME, log_prints=True)
-def trimmomatic_flow(project_fp: Path, config: Config, samples: dict[str, Path] = {}) -> list[Path]:
+def trimmomatic_flow(
+    project_fp: Path, config: Config, samples: dict[str, Path] = {}
+) -> list[Path]:
     flow_config = config.flows[NAME]
     input_fp = get_input_fp(Path(flow_config.input), project_fp)
     output_fp = get_output_fp(Path(flow_config.output), project_fp)
@@ -19,7 +23,9 @@ def trimmomatic_flow(project_fp: Path, config: Config, samples: dict[str, Path] 
 
     # Run
     results = []
-    samples_list = samples if samples else gather_samples(input_fp, paired_end=config.paired_end)
+    samples_list = (
+        samples if samples else gather_samples(input_fp, paired_end=config.paired_end)
+    )
     for sample_name, r1 in samples_list.items():
         results.append(
             run_trimmomatic.submit(
@@ -40,7 +46,9 @@ def trimmomatic_flow(project_fp: Path, config: Config, samples: dict[str, Path] 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=f"Run {NAME}")
     parser.add_argument("project_fp", type=str, help="Filepath to the project")
-    parser.add_argument("--samples", nargs='*', default=[], help="Paths to samples to run")
+    parser.add_argument(
+        "--samples", nargs="*", default=[], help="Paths to samples to run"
+    )
     args = parser.parse_args()
     config = Config(Path(args.project_fp).absolute() / "config.yaml")
 
@@ -48,4 +56,6 @@ if __name__ == "__main__":
     if args.samples:
         samples = {Path(sample).name: Path(sample).resolve() for sample in args.samples}
 
-    trimmomatic_flow(project_fp=Path(args.project_fp).absolute(), config=config, samples=samples)
+    trimmomatic_flow(
+        project_fp=Path(args.project_fp).absolute(), config=config, samples=samples
+    )
