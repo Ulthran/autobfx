@@ -1,4 +1,4 @@
-from autobfx.tasks.fastqc import run_fastqc
+from src.autobfx.tasks.fastqc import run_fastqc
 
 
 def test_fastqc():

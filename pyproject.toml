@@ -45,7 +45,7 @@ dev = [
 "Bug Reports" = "https://github.com/Ulthran/autobfx/issues"
 
 [project.scripts]
-#sample = "sample:main"
+autobfx = "autobfx.scripts.autobfx:main"
 
 [tool.setuptools]
 package-data = {"config" = ["config.yaml"], "envs" = ["envs/*.yaml"], "cmd" = ["cmd/*"]}
