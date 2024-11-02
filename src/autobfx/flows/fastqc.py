@@ -1,9 +1,9 @@
 import argparse
 from pathlib import Path
 from prefect import flow
-from ..tasks.fastqc import run_fastqc
-from ..lib.config import Config
-from ..lib.utils import gather_samples, get_input_fp, get_log_fp, get_output_fp
+from autobfx.tasks.fastqc import run_fastqc
+from autobfx.lib.config import Config
+from autobfx.lib.utils import gather_samples, get_input_fp, get_log_fp, get_output_fp
 
 
 NAME = "fastqc"

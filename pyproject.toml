@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-# TODO: Rename (easybfx?? seems kinda bad...)
+# TODO: Rename maybe (easybfx?? seems kinda bad...)
 name = "autobfx"
 dynamic = ["version"]
 description = "A tool for easier bioinformatics"

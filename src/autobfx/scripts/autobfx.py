@@ -1,8 +1,8 @@
 import argparse
 import sys
-from . import __version__
-from .init import main as Init
-from .run import main as Run
+from autobfx import __version__
+from autobfx.scripts.init import main as Init
+from autobfx.scripts.run import main as Run
 
 
 def main():

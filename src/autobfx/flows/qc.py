@@ -4,11 +4,11 @@ from pathlib import Path
 from prefect import flow
 from prefect.deployments import run_deployment
 from prefect.task_runners import ThreadPoolTaskRunner
-from ..flows.trimmomatic import trimmomatic_flow
-from ..flows.fastqc import fastqc_flow
-from ..flows.heyfastq import heyfastq_flow
-from ..lib.config import Config, config_from_yaml
-from ..lib.utils import gather_samples, get_input_fp
+from autobfx.flows.trimmomatic import trimmomatic_flow
+from autobfx.flows.fastqc import fastqc_flow
+from autobfx.flows.heyfastq import heyfastq_flow
+from autobfx.lib.config import Config, config_from_yaml
+from autobfx.lib.utils import gather_samples, get_input_fp
 
 
 NAME = "qc"
