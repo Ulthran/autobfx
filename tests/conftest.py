@@ -2,7 +2,7 @@ import os
 import pytest
 import sys
 from pathlib import Path
-from src.autobfx.scripts.init import main as Init
+from autobfx.scripts.init import main as Init
 
 # Ensure 'src' is in the Python path for package imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
