@@ -53,3 +53,6 @@ package-data = {"config" = ["config.yaml"], "envs" = ["envs/*.yaml"], "cmd" = ["
 
 [tool.setuptools.dynamic]
 version = {attr = "autobfx.__version__"}
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

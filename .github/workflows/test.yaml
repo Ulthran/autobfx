@@ -49,11 +49,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install .[dev]
+          pip install --upgrade pip
+          pip install .[dev]
 
       - name: Run tests
-        run: python -m pytest -s -vvvv -l --tb=long tests/
+        run: pytest -s -vvvv -l --tb=long tests/
 
   lint:
     name: Lint Code Base
