@@ -53,7 +53,9 @@ jobs:
           pip install .[dev]
 
       - name: Run tests
-        run: PYTHONPATH=src pytest -s -vvvv -l --tb=long tests/
+        run: |
+          export PYTHONPATH=$PYTHONPATH:/home/runner/work/autobfx/autobfx/src
+          pytest -s -vvvv -l --tb=long tests/
 
   lint:
     name: Lint Code Base
