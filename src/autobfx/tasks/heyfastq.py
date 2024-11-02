@@ -1,7 +1,7 @@
 from pathlib import Path
 from prefect import task
 from prefect_shell import ShellOperation
-from autobfx.lib.utils import check_already_done, mark_as_done
+from ..lib.utils import check_already_done, mark_as_done
 
 
 @task

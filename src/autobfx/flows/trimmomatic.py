@@ -1,9 +1,9 @@
 import argparse
 from pathlib import Path
 from prefect import flow
-from autobfx.tasks.trimmomatic import run_trimmomatic
-from autobfx.lib.config import Config
-from autobfx.lib.utils import gather_samples, get_input_fp, get_log_fp, get_output_fp
+from ..tasks.trimmomatic import run_trimmomatic
+from ..lib.config import Config
+from ..lib.utils import gather_samples, get_input_fp, get_log_fp, get_output_fp
 
 
 NAME = "trimmomatic"
