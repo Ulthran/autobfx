@@ -1,8 +1,8 @@
 import argparse
 import os
 from pathlib import Path
-from autobfx import __version__
-from autobfx.lib.config import Config, FlowConfig
+from .. import __version__
+from ..lib.config import Config, FlowConfig
 
 
 def default_config(project_fp: Path, name: str = None) -> Config:
