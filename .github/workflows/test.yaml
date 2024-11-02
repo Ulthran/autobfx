@@ -54,6 +54,7 @@ jobs:
 
       - name: Run tests
         run: |
+          ls -al /home/runner/work/autobfx/autobfx/src
           export PYTHONPATH=$PYTHONPATH:/home/runner/work/autobfx/autobfx/src
           pytest -s -vvvv -l --tb=long tests/
 
