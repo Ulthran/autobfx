@@ -10,6 +10,7 @@ def run_fastqc(
     input_fp: Path,
     output_fp: Path,
     log_fp: Path,
+    env: str,
     paired_end: bool = True,
 ) -> Path:
     # Check files
@@ -32,7 +33,7 @@ def run_fastqc(
     shell_output = ShellOperation(
         commands=[
             f"source {os.environ.get('CONDA_PREFIX', '')}/etc/profile.d/conda.sh",
-            "conda activate fastqc",
+            f"conda activate {env}",
             " ".join(cmd),
         ]
     ).run()

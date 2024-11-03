@@ -1,20 +1,26 @@
 import argparse
 import asyncio
 from pathlib import Path
-from prefect import flow
+from prefect import flow, tags
 from prefect.deployments import run_deployment
 from prefect.task_runners import ThreadPoolTaskRunner
-from autobfx.flows.trimmomatic import trimmomatic_flow
-from autobfx.flows.fastqc import fastqc_flow
-from autobfx.flows.heyfastq import heyfastq_flow
+from autobfx.tasks.trimmomatic import run_trimmomatic
+from autobfx.tasks.fastqc import run_fastqc
+from autobfx.tasks.heyfastq import run_heyfastq
 from autobfx.lib.config import Config, config_from_yaml
-from autobfx.lib.utils import gather_samples, get_input_fp
+from autobfx.lib.utils import (
+    gather_samples,
+    get_input_fp,
+    get_log_fp,
+    get_output_fp,
+    setup_step,
+)
 
 
 NAME = "qc"
 
 
-@flow(name=NAME, log_prints=True, task_runner=ThreadPoolTaskRunner(max_workers=5))
+@flow(name=NAME, log_prints=True)  # , task_runner=ThreadPoolTaskRunner(max_workers=5))
 def qc_flow(
     project_fp: Path, config: Config, samples: dict[str, Path] = {}
 ) -> list[Path]:
@@ -28,28 +34,54 @@ def qc_flow(
     )
     results = {sample_name: {} for sample_name in samples_list.keys()}
 
-    async def qc_for_sample(sample_name, r1):
-        results[sample_name]["trimmomatic"] = trimmomatic_flow(
-            project_fp, config, samples={sample_name: r1}
-        )
-        results[sample_name]["heyfastq"] = heyfastq_flow(
-            project_fp, config, samples={sample_name: r1}
-        )
-        results[sample_name]["fastqc"] = fastqc_flow(
-            project_fp, config, samples={sample_name: r1}
-        )
+    # Setup
+    trimmomatic_input_fp, trimmomatic_output_fp, trimmomatic_log_fp = setup_step(
+        project_fp, config, "trimmomatic"
+    )
+    heyfastq_input_fp, heyfastq_output_fp, heyfastq_log_fp = setup_step(
+        project_fp, config, "heyfastq"
+    )
+    fastqc_input_fp, fastqc_output_fp, fastqc_log_fp = setup_step(
+        project_fp, config, "fastqc"
+    )
 
-    async def submit_flows():
-        await asyncio.gather(
-            *[
-                qc_for_sample(sample_name, r1)
-                for sample_name, r1 in samples_list.items()
-            ]
-        )
+    # Preprocess
 
-    asyncio.run(submit_flows())
+    # Run
+    for sample_name, r1 in samples_list.items():
+        with tags("trimmomatic"):
+            results[sample_name]["trimmomatic"] = run_trimmomatic.submit(
+                input_fp=r1,
+                output_fp=trimmomatic_output_fp / r1.name,
+                log_fp=trimmomatic_log_fp / f"{sample_name}.log",
+                env=config.flows["trimmomatic"].env,
+                paired_end=config.paired_end,
+                **config.flows["trimmomatic"].parameters,
+            )
 
-    print(results)
+        with tags("heyfastq"):
+            results[sample_name]["heyfastq"] = run_heyfastq.submit(
+                input_fp=r1,
+                output_fp=heyfastq_output_fp / r1.name,
+                log_fp=heyfastq_log_fp / f"{sample_name}.log",
+                paired_end=config.paired_end,
+                **config.flows["heyfastq"].parameters,
+                wait_for=[results[sample_name]["trimmomatic"]],
+            )
+
+        with tags("fastqc"):
+            results[sample_name]["fastqc"] = run_fastqc.submit(
+                input_fp=r1,
+                output_fp=fastqc_output_fp / r1.name,
+                log_fp=fastqc_log_fp / f"{sample_name}.log",
+                env=config.flows["fastqc"].env,
+                paired_end=config.paired_end,
+                **config.flows["fastqc"].parameters,
+                wait_for=[results[sample_name]["trimmomatic"]],
+            )
+
+    # Postprocess
+
     return results
 
 

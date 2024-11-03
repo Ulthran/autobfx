@@ -3,7 +3,13 @@ from pathlib import Path
 from prefect import flow
 from autobfx.tasks.fastqc import run_fastqc
 from autobfx.lib.config import Config
-from autobfx.lib.utils import gather_samples, get_input_fp, get_log_fp, get_output_fp
+from autobfx.lib.utils import (
+    gather_samples,
+    get_input_fp,
+    get_log_fp,
+    get_output_fp,
+    setup_step,
+)
 
 
 NAME = "fastqc"
