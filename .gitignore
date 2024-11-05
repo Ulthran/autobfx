@@ -1,5 +1,11 @@
 # Custom
 projects/
+tests/data/hosts/.*.done
+tests/data/hosts/*.fasta.amb
+tests/data/hosts/*.fasta.ann
+tests/data/hosts/*.fasta.bwt
+tests/data/hosts/*.fasta.pac
+tests/data/hosts/*.fasta.sa
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
