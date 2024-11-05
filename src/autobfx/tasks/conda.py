@@ -10,7 +10,7 @@ from prefect_shell import ShellOperation
 def create_environment(
     env_name: str,
     env_fp: Path,
-    log_fp: Path, # TODO: Consider but probably remove this, can just rely on task logs for this
+    log_fp: Path,  # TODO: Consider but probably remove this, can just rely on task logs for this
 ) -> str:
     shell_output = ShellOperation(
         commands=[

@@ -28,7 +28,6 @@ def qc_flow(
             config.paired_end,
         )
     )
-    results = {sample_name: {} for sample_name in samples_list.keys()}
 
     # Setup
     trimmomatic_input_fp, trimmomatic_output_fp, trimmomatic_log_fp = setup_step(
@@ -44,6 +43,7 @@ def qc_flow(
     # Preprocess
 
     # Run
+    results = {sample_name: {} for sample_name in samples_list.keys()}
     for sample_name, r1 in samples_list.items():
         with tags(sample_name):
             with tags("trimmomatic"):

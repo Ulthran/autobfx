@@ -3,7 +3,12 @@ from pathlib import Path
 from prefect import flow, tags
 from prefect.deployments import run_deployment
 from prefect.states import Completed
+from autobfx.flows.qc import qc_flow
+from autobfx.flows.decontam import decontam_flow
 from autobfx.tasks.bwa import run_build_host_index, run_align_to_host
+from autobfx.tasks.fastqc import run_fastqc
+from autobfx.tasks.heyfastq import run_heyfastq
+from autobfx.tasks.trimmomatic import run_trimmomatic
 from autobfx.lib.config import Config, config_from_yaml
 from autobfx.lib.utils import (
     gather_samples,
@@ -12,17 +17,16 @@ from autobfx.lib.utils import (
 )
 
 
-NAME = "decontam"
+NAME = "clean_shotgun"
 
 
 @flow(name=NAME, log_prints=True)  # , task_runner=ThreadPoolTaskRunner(max_workers=5))
-def decontam_flow(
-    project_fp: Path,
-    config: Config,
-    samples: dict[str, Path] = {},
-    input_dependencies: dict = {},
+def clean_shotgun_flow(
+    project_fp: Path, config: Config, samples: dict[str, Path] = {}
 ) -> list[Path]:
-    # Gather inputs
+    # qc_results = qc_flow(project_fp, config, samples=samples)
+    # decontam_flow(project_fp, config, samples=samples, input_dependencies={k: v["heyfastq"] for k, v in qc_results.items()})
+
     samples_list = (
         samples
         if samples
@@ -37,6 +41,15 @@ def decontam_flow(
     ]
 
     # Setup
+    trimmomatic_input_fp, trimmomatic_output_fp, trimmomatic_log_fp = setup_step(
+        project_fp, config, "trimmomatic"
+    )
+    heyfastq_input_fp, heyfastq_output_fp, heyfastq_log_fp = setup_step(
+        project_fp, config, "heyfastq"
+    )
+    fastqc_input_fp, fastqc_output_fp, fastqc_log_fp = setup_step(
+        project_fp, config, "fastqc"
+    )
     build_host_index_input_fp, build_host_index_output_fp, build_host_index_log_fp = (
         setup_step(project_fp, config, "build_host_index")
     )
@@ -57,6 +70,40 @@ def decontam_flow(
     # Preprocess
 
     # Run
+    qc_results = {sample_name: {} for sample_name in samples_list.keys()}
+    for sample_name, r1 in samples_list.items():
+        with tags(sample_name):
+            with tags("trimmomatic"):
+                qc_results[sample_name]["trimmomatic"] = run_trimmomatic.submit(
+                    input_fp=r1,
+                    output_fp=trimmomatic_output_fp / r1.name,
+                    log_fp=trimmomatic_log_fp / f"{sample_name}.log",
+                    env=config.flows["trimmomatic"].env,
+                    paired_end=config.paired_end,
+                    **config.flows["trimmomatic"].parameters,
+                )
+
+            with tags("heyfastq"):
+                qc_results[sample_name]["heyfastq"] = run_heyfastq.submit(
+                    input_fp=r1,
+                    output_fp=heyfastq_output_fp / r1.name,
+                    log_fp=heyfastq_log_fp / f"{sample_name}.log",
+                    paired_end=config.paired_end,
+                    **config.flows["heyfastq"].parameters,
+                    wait_for=[qc_results[sample_name]["trimmomatic"]],
+                )
+
+            with tags("fastqc"):
+                qc_results[sample_name]["fastqc"] = run_fastqc.submit(
+                    input_fp=r1,
+                    output_fp=fastqc_output_fp / r1.name,
+                    log_fp=fastqc_log_fp / f"{sample_name}.log",
+                    env=config.flows["fastqc"].env,
+                    paired_end=config.paired_end,
+                    **config.flows["fastqc"].parameters,
+                    wait_for=[qc_results[sample_name]["trimmomatic"]],
+                )
+
     build_host_index_results = {host_fp.stem: None for host_fp in hosts_list}
     for host_fp in hosts_list:
         with tags(host_fp.stem):
@@ -79,14 +126,6 @@ def decontam_flow(
             with tags("align_to_host"):
                 for host_fp in hosts_list:
                     with tags(host_fp.stem):
-                        deps = (
-                            [
-                                input_dependencies[sample_name],
-                                build_host_index_results[host_fp.stem],
-                            ]
-                            if input_dependencies
-                            else [build_host_index_results[host_fp.stem]]
-                        )
                         align_to_host_results[(sample_name, host_fp.stem)] = (
                             run_align_to_host.submit(
                                 input_fp=r1,
@@ -97,13 +136,14 @@ def decontam_flow(
                                 env=config.flows["align_to_host"].env,
                                 paired_end=config.paired_end,
                                 **config.flows["align_to_host"].parameters,
-                                wait_for=deps,
+                                wait_for=[
+                                    qc_results[sample_name]["heyfastq"],
+                                    build_host_index_results[host_fp.stem],
+                                ],
                             )
                         )
 
-    # Postprocess
-
-    return align_to_host_results
+    return qc_results, align_to_host_results
 
 
 if __name__ == "__main__":
@@ -126,7 +166,7 @@ if __name__ == "__main__":
 
     decontam_flow.from_source(
         source=str(Path(__file__).parent),
-        entrypoint="decontam.py:decontam_flow",
+        entrypoint="clean_shotgun.py:clean_shotgun_flow",
     ).deploy(
         name=f"{NAME}_deployment",
         work_pool_name="default",
