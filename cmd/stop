@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 
 echo "Careful! This script will stop ALL workers and the server. Check the dashboard and with anyone else running jobs through AutoBfx before doing this. Are you sure you want to continue? (y/n)"
 read answer
@@ -11,10 +11,29 @@ fi
 
 ### Stop the default work pool worker(s) ###
 
-kill $(pgrep -f "prefect worker")
+for pid in $(pgrep -f "prefect worker"); do
+    kill $pid
+done
+sleep 1
 
 ### Stop the server ###
 
 kill $(pgrep -f "prefect server")
+sleep 1
 
-# If this doesn't work, try `kill -9 $(pgrep -f "prefect server")` instead
+### Check that everything has stopped ###
+
+server_pid=$(pgrep -f "prefect server")
+worker_pids=$(pgrep -f "prefect worker")
+
+if [ -z "$server_pid" ]; then
+    echo "Prefect server has stopped"
+else
+    echo "Prefect server is still running at PID $server_pid, try: 'kill -9 $server_pid'"
+fi
+
+if [ -z "$worker_pids" ]; then
+    echo "All workers have stopped"
+else
+    echo "Workers are still running at PIDs $worker_pids, trying killing the processes manually with 'kill -9 ...'"
+fi

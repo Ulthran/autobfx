@@ -4,7 +4,7 @@
 
 ### Start the server ###
 
-if [ $(curl http://127.0.0.1:4200/api -eq 0) ]; then
+if [ $(curl -s http://127.0.0.1:4200/api -eq 0) ]; then
     echo "Prefect server already running"
 else
     nohup prefect server start > autobfx_server_output.log 2>&1 &

@@ -1,0 +1,26 @@
+#! /bin/sh
+
+### Check the status of the server ###
+
+server_pid=$(pgrep -f "prefect server")
+server_status=$(curl -sI http://127.0.0.1:4200/api | head -n 1)
+
+if [ -z "$server_pid" ]; then
+    echo "Prefect server is not running"
+    echo ""
+else
+    echo "Prefect server is running at PID $server_pid with status $server_status"
+    echo ""
+fi
+
+### Check the status of any workers ###
+
+worker_pids=$(pgrep -f "prefect worker")
+
+echo "Worker processes:"
+echo ""
+
+# Iterate over pids and check status
+for pid in $worker_pids; do
+    ps aux | grep $pid | grep 'prefect worker'
+done
