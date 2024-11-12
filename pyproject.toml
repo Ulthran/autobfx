@@ -30,7 +30,7 @@ classifiers = [
 ]
 dependencies = [
     "prefect==3.0.1",
-    "prefect-shell",
+    "prefect[shell]",
 ]
 
 [project.optional-dependencies]

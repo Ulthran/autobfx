@@ -78,8 +78,6 @@ def run_align_to_host(
     ).run()
 
     with open(log_fp, "w") as f:
-        # Consider using sp.Popen for finer control over running process
-        # sp.run(cmd, shell=True, executable="/bin/bash", stdout=f, stderr=f)
         f.writelines(shell_output)
 
     mark_as_done(output_fp)
