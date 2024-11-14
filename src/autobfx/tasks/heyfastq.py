@@ -5,29 +5,24 @@ from autobfx.lib.io import IOObject, IOReads
 
 def run_heyfastq(
     input_reads: list[IOReads],
-    extra_inputs: dict[str, IOObject],
+    extra_inputs: dict[str, list[IOObject]],
     output_reads: list[IOReads],
-    extra_outputs: dict[str, IOObject],
+    extra_outputs: dict[str, list[IOObject]],
     log_fp: Path,
     sub_cmd: str = "filter-kscore",
     min_kscore: float = 0.5,
 ) -> Path:
-    r1_in = input_reads[0].fp
-    r2_in = input_reads[0].r2
-    paired_end = r2_in is not None
-    r1_out = output_reads[0].fp
-    r2_out = output_reads[0].r2
-
     # TODO: Just use the python API instead of the shell command
-    # Create command
     cmd = ["heyfastq", sub_cmd]
     cmd += (
-        ["--input", str(r1_in), str(r2_in)] if paired_end else ["--input", str(r1_in)]
+        ["--input", str(input_reads[0].fp), str(input_reads[0].r2)]
+        if input_reads[0].r2
+        else ["--input", str(input_reads[0].fp)]
     )
     cmd += (
-        ["--output", str(r1_out), str(r2_out)]
-        if paired_end
-        else ["--output", str(r1_out)]
+        ["--output", str(output_reads[0].fp), str(output_reads[0].r2)]
+        if input_reads[0].r2
+        else ["--output", str(output_reads[0].fp)]
     )
     cmd += ["--min-kscore", str(min_kscore)]
 

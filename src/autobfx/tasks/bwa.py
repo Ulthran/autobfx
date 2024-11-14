@@ -6,14 +6,12 @@ from autobfx.lib.io import IOObject, IOReads
 
 def run_build_host_index(
     input_reads: list[IOReads],
-    extra_inputs: dict[str, IOObject],
+    extra_inputs: dict[str, list[IOObject]],
     output_reads: list[IOReads],
-    extra_outputs: dict[str, IOObject],
+    extra_outputs: dict[str, list[IOObject]],
     log_fp: Path,
 ) -> Path:
-    host_fp = extra_inputs["host"].fp
-
-    cmd = ["bwa", "index", str(host_fp)]
+    cmd = ["bwa", "index", str(extra_inputs["host"][0].fp)]
 
     print(f"Running {' '.join(cmd)}")
 
@@ -37,24 +35,21 @@ def run_build_host_index(
 
 def run_align_to_host(
     input_reads: list[IOReads],
-    extra_inputs: dict[str, IOObject],
+    extra_inputs: dict[str, list[IOObject]],
     output_reads: list[IOReads],
-    extra_outputs: dict[str, IOObject],
+    extra_outputs: dict[str, list[IOObject]],
     log_fp: Path,
     threads: int = 1,
 ) -> Path:
-    r1_in = input_reads[0].fp
-    r2_in = input_reads[0].r2
-    paired_end = r2_in is not None
-    host_fp = extra_inputs["host"].fp
-    r1_out = output_reads[0].fp
-    r2_out = output_reads[0].r2
-
     cmd = ["bwa", "mem", "-M"]
     cmd += ["-t", str(threads)]
-    cmd += [str(host_fp)]
-    cmd += [str(r1_in), str(r2_in)] if paired_end else [str(r1_in)]
-    cmd += ["-o", str(r1_out.parent)]
+    cmd += [str(extra_inputs["host"][0].fp)]
+    cmd += (
+        [str(input_reads[0].fp), str(input_reads[0].r2)]
+        if input_reads[0].r2
+        else [str(input_reads[0].fp)]
+    )
+    cmd += ["-o", str(output_reads[0].fp.parent)]
 
     print(f"Running {' '.join(cmd)}")
 

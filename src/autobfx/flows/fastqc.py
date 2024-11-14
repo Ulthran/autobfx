@@ -21,7 +21,7 @@ def FASTQC(config: Config) -> AutobfxFlow:
     tasks = [
         AutobfxTask(
             name=NAME,
-            ids=[NAME, sample_name],
+            ids=(sample_name),
             func=run_fastqc,
             project_fp=project_fp,
             input_reads=[reads],

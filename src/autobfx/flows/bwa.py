@@ -4,7 +4,7 @@ from autobfx.tasks.bwa import run_align_to_host, run_build_host_index
 from autobfx.lib.config import Config
 from autobfx.lib.flow import AutobfxFlow
 from autobfx.lib.task import AutobfxTask
-from autobfx.lib.utils import gather_samples, get_log_fp
+from autobfx.lib.utils import gather_samples
 
 
 def BUILD_HOST_INDEX(config: Config) -> AutobfxFlow:
@@ -12,18 +12,18 @@ def BUILD_HOST_INDEX(config: Config) -> AutobfxFlow:
     project_fp = config.project_fp
     flow_config = config.flows[NAME]
     extra_inputs = flow_config.get_extra_inputs(project_fp)
-    log_fp = get_log_fp(config, NAME)
+    log_fp = config.get_log_fp() / NAME
 
     hosts_list = {
-        x.stem: x.resolve() for x in Path(extra_inputs["hosts"]).glob("*.fasta")
+        x.stem: x.resolve() for x in Path(extra_inputs["hosts"][0]).glob("*.fasta")
     }
     tasks = [
         AutobfxTask(
             name=NAME,
-            ids=[NAME, host_name],
+            ids=(host_name),
             func=run_build_host_index,
             project_fp=project_fp,
-            extra_inputs=[fa],
+            extra_inputs={"host": [fa]},
             log_fp=log_fp / f"{host_name}.log",
             kwargs={
                 **flow_config.parameters,
@@ -42,20 +42,20 @@ def ALIGN_TO_HOST(config: Config) -> AutobfxFlow:
     input_reads = flow_config.get_input_reads(project_fp)
     extra_inputs = flow_config.get_extra_inputs(project_fp)
     output_reads = flow_config.get_output_reads(project_fp)
-    log_fp = get_log_fp(config, NAME)
+    log_fp = config.get_log_fp() / NAME
 
     hosts_list = {
-        x.stem: x.resolve() for x in Path(extra_inputs["hosts"]).glob("*.fasta")
+        x.stem: x.resolve() for x in Path(extra_inputs["hosts"][0]).glob("*.fasta")
     }
     samples_list = gather_samples(input_reads[0], config.paired_end, config.samples)
     tasks = [
         AutobfxTask(
             name=NAME,
-            ids=[NAME, sample_name, host_name],
+            ids=(sample_name, host_name),
             func=run_align_to_host,
             project_fp=project_fp,
             input_reads=[reads],
-            extra_inputs={"host": fa},
+            extra_inputs={"host": [fa]},
             output_reads=[reads.get_output_reads(output_reads[0])],
             log_fp=log_fp / f"{sample_name}_{host_name}.log",
             # runner=flow_config.runner,

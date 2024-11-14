@@ -6,9 +6,9 @@ from autobfx.lib.io import IOObject, IOReads
 
 def run_trimmomatic(
     input_reads: list[IOReads],
-    extra_inputs: dict[str, IOObject],
+    extra_inputs: dict[str, list[IOObject]],
     output_reads: list[IOReads],
-    extra_outputs: dict[str, IOObject],
+    extra_outputs: dict[str, list[IOObject]],
     # runner
     log_fp: Path,
     threads: int = 1,
@@ -19,7 +19,7 @@ def run_trimmomatic(
     minlen: int = 36,
 ):
     try:
-        adapter_template = extra_inputs["adapter_template"].fp
+        adapter_template = extra_inputs["adapter_template"][0].fp
     except KeyError:
         adapter_template = None
 
