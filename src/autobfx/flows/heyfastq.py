@@ -1,58 +1,47 @@
-import argparse
 from pathlib import Path
 from prefect import flow
 from autobfx.tasks.heyfastq import run_heyfastq
 from autobfx.lib.config import Config
-from autobfx.lib.utils import gather_samples, get_input_fp, get_log_fp, get_output_fp
+from autobfx.lib.flow import AutobfxFlow
+from autobfx.lib.task import AutobfxTask
+from autobfx.lib.utils import gather_samples
+
 
 NAME = "heyfastq"
 
 
-@flow(name=NAME, log_prints=True)
-def heyfastq_flow(
-    project_fp: Path, config: Config, samples: dict[str, Path] = {}
-) -> list[Path]:
+def HEYFASTQ(config: Config) -> AutobfxFlow:
+    project_fp = config.project_fp
     flow_config = config.flows[NAME]
-    input_fp = get_input_fp(Path(flow_config.input), project_fp)
-    output_fp = get_output_fp(Path(flow_config.output), project_fp)
-    log_fp = get_log_fp(NAME, project_fp)
+    input_reads = flow_config.get_input_reads(project_fp)
+    output_reads = flow_config.get_output_reads(project_fp)
+    log_fp = config.get_log_fp() / NAME
 
     # Preprocess
 
     # Run
-    results = []
-    samples_list = (
-        samples if samples else gather_samples(input_fp, paired_end=config.paired_end)
-    )
-    for sample_name, r1 in samples_list.items():
-        results.append(
-            run_heyfastq.submit(
-                input_fp=r1,
-                output_fp=output_fp / r1.name,
-                log_fp=log_fp / f"{sample_name}.log",
-                paired_end=config.paired_end,
+    samples_list = gather_samples(input_reads[0], config.paired_end, config.samples)
+    tasks = [
+        AutobfxTask(
+            name=NAME,
+            ids=[NAME, sample_name],
+            func=run_heyfastq,
+            project_fp=project_fp,
+            input_reads=[reads],
+            output_reads=[reads.get_output_reads(output_reads[0])],
+            log_fp=log_fp / f"{sample_name}.log",
+            # runner=flow_config.runner,
+            kwargs={
                 **flow_config.parameters,
-            )
+            },
         )
+        for sample_name, reads in samples_list.items()
+    ]
 
-    # Postprocess
-
-    return [r.result() for r in results]
+    return AutobfxFlow(config, NAME, tasks)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=f"Run {NAME}")
-    parser.add_argument("project_fp", type=str, help="Filepath to the project")
-    parser.add_argument(
-        "--samples", nargs="*", default=[], help="Paths to samples to run"
-    )
-    args = parser.parse_args()
-    config = Config(Path(args.project_fp).absolute() / "config.yaml")
-
-    samples = {}
-    if args.samples:
-        samples = {Path(sample).name: Path(sample).resolve() for sample in args.samples}
-
-    heyfastq_flow(
-        project_fp=Path(args.project_fp).absolute(), config=config, samples=samples
-    )
+@flow(name=NAME, log_prints=True)
+def heyfastq_flow(config: dict) -> list[Path]:
+    submissions = [task.submit() for task in HEYFASTQ(Config(**config)).tasks]
+    return [s.result() for s in submissions]

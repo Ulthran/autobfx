@@ -4,7 +4,7 @@ from prefect import flow, tags
 from prefect.deployments import run_deployment
 from prefect.states import Completed
 from autobfx.tasks.bwa import run_build_host_index, run_align_to_host
-from autobfx.lib.config import Config, config_from_yaml
+from autobfx.lib.config import Config
 from autobfx.lib.utils import (
     gather_samples,
     get_input_fp,

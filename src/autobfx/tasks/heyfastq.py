@@ -1,55 +1,49 @@
 from pathlib import Path
-from prefect import task
 from prefect_shell import ShellOperation
-from autobfx.lib.utils import check_already_done, mark_as_done
+from autobfx.lib.io import IOObject, IOReads
 
 
-@task
 def run_heyfastq(
-    input_fp: Path,
-    output_fp: Path,
+    input_reads: list[IOReads],
+    extra_inputs: dict[str, IOObject],
+    output_reads: list[IOReads],
+    extra_outputs: dict[str, IOObject],
     log_fp: Path,
-    paired_end: bool = True,
     sub_cmd: str = "filter-kscore",
     min_kscore: float = 0.5,
 ) -> Path:
-    # Check files
-    if check_already_done(output_fp):
-        return output_fp
-    if not input_fp.exists():
-        raise FileNotFoundError(f"Input file not found: {input_fp}")
-    if paired_end:
-        input_pair_fp = Path(str(input_fp).replace("_R1", "_R2"))
-        output_pair_fp = Path(str(output_fp).replace("_R1", "_R2"))
-
-        if not input_pair_fp.exists():
-            raise FileNotFoundError(f"Paired-end file not found: {input_pair_fp}")
+    r1_in = input_reads[0].fp
+    r2_in = input_reads[0].r2
+    paired_end = r2_in is not None
+    r1_out = output_reads[0].fp
+    r2_out = output_reads[0].r2
 
     # TODO: Just use the python API instead of the shell command
     # Create command
     cmd = ["heyfastq", sub_cmd]
     cmd += (
-        ["--input", str(input_fp), str(input_pair_fp)]
-        if paired_end
-        else ["--input", str(input_fp)]
+        ["--input", str(r1_in), str(r2_in)] if paired_end else ["--input", str(r1_in)]
     )
     cmd += (
-        ["--output", str(output_fp), str(output_pair_fp)]
+        ["--output", str(r1_out), str(r2_out)]
         if paired_end
-        else ["--output", str(output_fp)]
+        else ["--output", str(r1_out)]
     )
     cmd += ["--min-kscore", str(min_kscore)]
 
-    # Run command
-    shell_output = ShellOperation(
+    print(f"Running {' '.join(cmd)}")
+
+    with ShellOperation(
         commands=[
             " ".join(cmd),
-        ]
-    ).run()
+        ],
+        stream_output=False,
+    ) as shell_operation:
+        shell_process = shell_operation.trigger()
+        shell_process.wait_for_completion()
+        shell_output = shell_process.fetch_result()
 
     with open(log_fp, "w") as f:
         f.writelines(shell_output)
 
-    mark_as_done(output_fp)
-
-    return output_fp
+    return 1

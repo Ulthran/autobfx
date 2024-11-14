@@ -5,11 +5,11 @@ from prefect.deployments import run_deployment
 from prefect.states import Completed
 from autobfx.flows.qc import qc_flow
 from autobfx.flows.decontam import decontam_flow
-from autobfx.tasks.bwa import run_build_host_index, run_align_to_host
-from autobfx.tasks.fastqc import run_fastqc
-from autobfx.tasks.heyfastq import run_heyfastq
-from autobfx.tasks.trimmomatic import run_trimmomatic
-from autobfx.lib.config import Config, config_from_yaml
+from autobfx.flows.trimmomatic import TRIMMOMATIC
+from autobfx.flows.bwa import BUILD_HOST_INDEX, ALIGN_TO_HOST
+from autobfx.flows.fastqc import FASTQC
+from autobfx.flows.heyfastq import HEYFASTQ
+from autobfx.lib.config import Config
 from autobfx.lib.utils import (
     gather_samples,
     get_input_fp,
@@ -20,56 +20,39 @@ from autobfx.lib.utils import (
 NAME = "clean_shotgun"
 
 
-@flow(name=NAME, log_prints=True)  # , task_runner=ThreadPoolTaskRunner(max_workers=5))
-def clean_shotgun_flow(
-    project_fp: Path, config: Config, samples: dict[str, Path] = {}
-) -> list[Path]:
-    # qc_results = qc_flow(project_fp, config, samples=samples)
-    # decontam_flow(project_fp, config, samples=samples, input_dependencies={k: v["heyfastq"] for k, v in qc_results.items()})
+@flow(name=NAME, log_prints=True)
+def clean_shotgun_flow(config: dict) -> list[Path]:
+    trimmomatic_submissions = {
+        task.tag_str: task.submit() for task in TRIMMOMATIC(Config(**config)).tasks
+    }
+    heyfastq_submissions = {
+        task.tag_str: task.submit(wait_for=[trimmomatic_submissions[task.tag_str]])
+        for task in HEYFASTQ(Config(**config)).tasks
+    }
+    fastqc_submissions = {
+        task.tag_str: task.submit(wait_for=[trimmomatic_submissions[task.tag_str]])
+        for task in FASTQC(Config(**config)).tasks
+    }
 
-    samples_list = (
-        samples
-        if samples
-        else gather_samples(
-            get_input_fp(Path(config.flows[NAME].input), project_fp),
-            config.paired_end,
+    build_host_index_submissions = {
+        task.tag_str: task.submit() for task in BUILD_HOST_INDEX(Config(**config)).tasks
+    }
+    align_to_host_submissions = {
+        task.tag_str: task.submit(
+            wait_for=[
+                heyfastq_submissions[task.tag_str],
+                build_host_index_submissions[task.tag_str],
+            ]
         )
-    )
-    hosts_list = [
-        x.resolve()
-        for x in Path(config.flows[NAME].parameters["hosts"]).glob("*.fasta")
+        for task in ALIGN_TO_HOST(Config(**config)).tasks
+    }  # TODO: Tagging so that this works...
+
+    return [
+        s.result()
+        for s in list(fastqc_submissions.values())
+        + list(align_to_host_submissions.values())
     ]
 
-    # Setup
-    trimmomatic_input_fp, trimmomatic_output_fp, trimmomatic_log_fp = setup_step(
-        project_fp, config, "trimmomatic"
-    )
-    heyfastq_input_fp, heyfastq_output_fp, heyfastq_log_fp = setup_step(
-        project_fp, config, "heyfastq"
-    )
-    fastqc_input_fp, fastqc_output_fp, fastqc_log_fp = setup_step(
-        project_fp, config, "fastqc"
-    )
-    build_host_index_input_fp, build_host_index_output_fp, build_host_index_log_fp = (
-        setup_step(project_fp, config, "build_host_index")
-    )
-    align_to_host_input_fp, align_to_host_output_fp, align_to_host_log_fp = setup_step(
-        project_fp, config, "align_to_host"
-    )
-    (
-        filter_host_reads_input_fp,
-        filter_host_reads_output_fp,
-        filter_host_reads_log_fp,
-    ) = setup_step(project_fp, config, "filter_host_reads")
-    (
-        preprocess_report_input_fp,
-        preprocess_report_output_fp,
-        preprocess_report_log_fp,
-    ) = setup_step(project_fp, config, "preprocess_report")
-
-    # Preprocess
-
-    # Run
     qc_results = {sample_name: {} for sample_name in samples_list.keys()}
     for sample_name, r1 in samples_list.items():
         with tags(sample_name):
@@ -144,40 +127,3 @@ def clean_shotgun_flow(
                         )
 
     return qc_results, align_to_host_results
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=f"Run {NAME}")
-    parser.add_argument("project_fp", type=str, help="Filepath to the project")
-    parser.add_argument(
-        "--samples",
-        nargs="*",
-        default=[],
-        help="Specific samples to run (provide full sample names e.g. 'sample1_R1.fastq.gz' as they appear in the input directory for this flow)",
-    )
-    args = parser.parse_args()
-    config = config_from_yaml(Path(args.project_fp).absolute() / "config.yaml")
-
-    samples = gather_samples(Path(config.flows[NAME].input), config.paired_end)
-    if args.samples:
-        samples = {k: v for k, v in samples.items() if Path(v).name in args.samples}
-        if missing := [x for x in args.samples if x not in samples.keys()]:
-            raise FileNotFoundError(f"Samples not found: {missing}")
-
-    decontam_flow.from_source(
-        source=str(Path(__file__).parent),
-        entrypoint="clean_shotgun.py:clean_shotgun_flow",
-    ).deploy(
-        name=f"{NAME}_deployment",
-        work_pool_name="default",
-        ignore_warnings=True,
-    )
-
-    run_deployment(
-        f"{NAME}/{NAME}_deployment",
-        parameters={
-            "project_fp": Path(args.project_fp).absolute(),
-            "config": config,
-            "samples": samples,
-        },
-    )

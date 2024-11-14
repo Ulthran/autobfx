@@ -1,85 +1,76 @@
 import os
 from pathlib import Path
-from prefect import task
 from prefect_shell import ShellOperation
-from autobfx.lib.utils import check_already_done, mark_as_done
+from autobfx.lib.io import IOObject, IOReads
 
 
-@task
 def run_build_host_index(
-    input_fp: Path,
-    output_fp: Path,
+    input_reads: list[IOReads],
+    extra_inputs: dict[str, IOObject],
+    output_reads: list[IOReads],
+    extra_outputs: dict[str, IOObject],
     log_fp: Path,
-    env: str,
-    paired_end: bool = True,
 ) -> Path:
-    # Check files
-    if check_already_done(output_fp):
-        return output_fp
-    if not input_fp.exists():
-        raise FileNotFoundError(f"Input file not found: {input_fp}")
+    host_fp = extra_inputs["host"].fp
 
-    # Create command
-    cmd = ["bwa", "index", str(input_fp)]
+    cmd = ["bwa", "index", str(host_fp)]
 
-    # Run command
-    shell_output = ShellOperation(
+    print(f"Running {' '.join(cmd)}")
+
+    with ShellOperation(
         commands=[
             f"source {os.environ.get('CONDA_PREFIX', '')}/etc/profile.d/conda.sh",
-            f"conda activate {env}",
+            f"conda activate bwa",
             " ".join(cmd),
-        ]
-    ).run()
+        ],
+        stream_output=False,
+    ) as shell_operation:
+        shell_process = shell_operation.trigger()
+        shell_process.wait_for_completion()
+        shell_output = shell_process.fetch_result()
 
     with open(log_fp, "w") as f:
         f.writelines(shell_output)
 
-    mark_as_done(output_fp)
-
-    return output_fp
+    return 1
 
 
-@task
 def run_align_to_host(
-    input_fp: Path,
-    output_fp: Path,
+    input_reads: list[IOReads],
+    extra_inputs: dict[str, IOObject],
+    output_reads: list[IOReads],
+    extra_outputs: dict[str, IOObject],
     log_fp: Path,
-    host_fp: Path,
-    env: str,
-    paired_end: bool = True,
     threads: int = 1,
 ) -> Path:
-    # Check files
-    if check_already_done(output_fp):
-        return output_fp
-    if not input_fp.exists():
-        raise FileNotFoundError(f"Input file not found: {input_fp}")
-    if paired_end:
-        input_pair_fp = Path(str(input_fp).replace("_R1", "_R2"))
-        if not input_pair_fp.exists():
-            raise FileNotFoundError(f"Paired-end file not found: {input_pair_fp}")
-    if not host_fp.exists():
-        raise FileNotFoundError(f"Host file not found: {host_fp}")
+    r1_in = input_reads[0].fp
+    r2_in = input_reads[0].r2
+    paired_end = r2_in is not None
+    host_fp = extra_inputs["host"].fp
+    r1_out = output_reads[0].fp
+    r2_out = output_reads[0].r2
 
-    # Create command
     cmd = ["bwa", "mem", "-M"]
     cmd += ["-t", str(threads)]
     cmd += [str(host_fp)]
-    cmd += [str(input_fp), str(input_pair_fp)] if paired_end else [str(input_fp)]
-    cmd += ["-o", str(output_fp)]
+    cmd += [str(r1_in), str(r2_in)] if paired_end else [str(r1_in)]
+    cmd += ["-o", str(r1_out.parent)]
 
-    # Run command
-    shell_output = ShellOperation(
+    print(f"Running {' '.join(cmd)}")
+
+    with ShellOperation(
         commands=[
             f"source {os.environ.get('CONDA_PREFIX', '')}/etc/profile.d/conda.sh",
-            f"conda activate {env}",
+            f"conda activate bwa",
             " ".join(cmd),
-        ]
-    ).run()
+        ],
+        stream_output=False,
+    ) as shell_operation:
+        shell_process = shell_operation.trigger()
+        shell_process.wait_for_completion()
+        shell_output = shell_process.fetch_result()
 
     with open(log_fp, "w") as f:
         f.writelines(shell_output)
 
-    mark_as_done(output_fp)
-
-    return output_fp
+    return 1

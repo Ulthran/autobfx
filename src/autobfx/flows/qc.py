@@ -5,7 +5,7 @@ from prefect.deployments import run_deployment
 from autobfx.tasks.trimmomatic import run_trimmomatic
 from autobfx.tasks.fastqc import run_fastqc
 from autobfx.tasks.heyfastq import run_heyfastq
-from autobfx.lib.config import Config, config_from_yaml
+from autobfx.lib.config import Config
 from autobfx.lib.utils import (
     gather_samples,
     get_input_fp,
