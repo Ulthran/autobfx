@@ -27,6 +27,7 @@ def main(argv):
     from autobfx.flows import root as main_root
 
     # TODO Once we have plugins they should be imported here (somehow find all 'autobfx-...' packages and import __dict__)
+    # Is this also the place to update the runner_map if it needs it?
 
     try:
         flow = flows[flow_id]

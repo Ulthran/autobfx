@@ -1,6 +1,6 @@
 from pathlib import Path
-from prefect_shell import ShellOperation
 from autobfx.lib.io import IOObject, IOReads
+from autobfx.lib.runner import AutobfxRunner
 
 
 def run_heyfastq(
@@ -9,6 +9,7 @@ def run_heyfastq(
     output_reads: list[IOReads],
     extra_outputs: dict[str, list[IOObject]],
     log_fp: Path,
+    runner: AutobfxRunner,
     sub_cmd: str = "filter-kscore",
     min_kscore: float = 0.5,
 ) -> Path:
@@ -25,20 +26,8 @@ def run_heyfastq(
         else ["--output", str(output_reads[0].fp)]
     )
     cmd += ["--min-kscore", str(min_kscore)]
+    cmd += ["2>&1", str(log_fp)]
 
-    print(f"Running {' '.join(cmd)}")
-
-    with ShellOperation(
-        commands=[
-            " ".join(cmd),
-        ],
-        stream_output=False,
-    ) as shell_operation:
-        shell_process = shell_operation.trigger()
-        shell_process.wait_for_completion()
-        shell_output = shell_process.fetch_result()
-
-    with open(log_fp, "w") as f:
-        f.writelines(shell_output)
+    runner.run_cmd(cmd)
 
     return 1

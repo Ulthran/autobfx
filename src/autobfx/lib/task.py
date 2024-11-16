@@ -2,6 +2,7 @@ from pathlib import Path
 from prefect import tags, task
 from typing import Callable
 from autobfx.lib.io import IOObject, IOReads
+from autobfx.lib.runner import AutobfxRunner, LocalRunner, NoManager
 
 
 class AutobfxTask:
@@ -12,7 +13,7 @@ class AutobfxTask:
     def __init__(
         self,
         name: str,
-        ids: tuple[str, ...],
+        ids: list[str],
         func: Callable,
         project_fp: Path,
         input_reads: list[IOReads] = [],
@@ -20,11 +21,14 @@ class AutobfxTask:
         output_reads: list[IOReads] = [],
         extra_outputs: dict[str, list[Path]] = {},
         log_fp: Path = Path(),
+        runner: AutobfxRunner = LocalRunner(swm=NoManager()),
         args: list = [],
         kwargs: dict = {},
     ):
         self.name = name  # The task name e.g. "trimmomatic"
-        self.ids = ids  # Any identifiers for the task run e.g. (sample_name) or (sample_name, host_name)
+        self.ids = tuple(
+            ids
+        )  # Any identifiers for the task run e.g. (sample_name) or (sample_name, host_name)
         # self.id_tuple: tuple[str, ...] = tuple(ids.values()) # For use as task tags or composite dictionary key
         self._func = func
         self.project_fp = project_fp
@@ -37,6 +41,7 @@ class AutobfxTask:
             k: [IOObject(x) for x in v] for k, v in extra_outputs.items()
         }
         self.log_fp = log_fp
+        self.runner = runner
         self.args = args
         self.kwargs = kwargs
 
@@ -47,14 +52,15 @@ class AutobfxTask:
             / f".{self.name}_{'_'.join(self.ids)}.done"
         )
 
-        @task(name=f"{self.name}_{'_'.join(self.ids)}")
-        def _runner_func(self):
+        @task(name=f"{self.name}_{'_'.join(list(self.ids))}")
+        def _runner_func():
             output = self._func(
                 self.input_reads,
                 self.extra_inputs,
                 self.output_reads,
                 self.extra_outputs,
                 self.log_fp,
+                self.runner,
                 *self.args,
                 **self.kwargs,
             )
@@ -108,7 +114,7 @@ class AutobfxTask:
 
         self._setup_run()
 
-        with tags(self.name, self.ids):
+        with tags(self.name, *self.ids):
             if submit:
                 return (
                     self._runner_func.submit(wait_for=wait_for)

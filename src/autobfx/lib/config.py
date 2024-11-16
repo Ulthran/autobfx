@@ -1,14 +1,11 @@
 from pathlib import Path
 from pydantic import BaseModel
-from enum import Enum
-
-
-# class RunnerEnum(str, Enum):
-#    dryrun = 'dryrun'
-#    local = 'local'
-#    conda = 'conda'
-#    docker = 'docker'
-#    ecs = 'ecs'
+from autobfx.lib.runner import (
+    AutobfxRunner,
+    AutobfxSoftwareManager,
+    runner_map,
+    swm_map,
+)
 
 
 class FlowConfig(BaseModel):
@@ -20,7 +17,7 @@ class FlowConfig(BaseModel):
     output_reads: Path | str | list[Path | str] = ""
     # A dictionary of extra output names mapping to the output directories or files
     extra_outputs: dict[str, Path | str | list[Path | str]] = {}
-    runner: str | None = None
+    # TODO: Consider adding flow-level SWM override
     conda: str = "base"
     image: str = ""
     parameters: dict[str, str | int | float | Path | list | dict] = {}
@@ -50,6 +47,15 @@ class FlowConfig(BaseModel):
             return [self._parse_io_dir(Path(x), project_fp) for x in self.output_reads]
         return [self._parse_io_dir(Path(self.output_reads), project_fp)]
 
+    def get_extra_outputs(self, project_fp: Path) -> dict[str, list[Path]]:
+        extra_outputs = {}
+        for k, v in self.extra_outputs.items():
+            if isinstance(v, list):
+                extra_outputs[k] = [self._parse_io_dir(Path(x), project_fp) for x in v]
+            else:
+                extra_outputs[k] = [self._parse_io_dir(Path(v), project_fp)]
+        return extra_outputs
+
 
 class Config(BaseModel):
     version: str
@@ -57,7 +63,8 @@ class Config(BaseModel):
     project_fp: Path
     paired_end: bool = True
     log_fp: str | Path = "logs"
-    # benchmark_dir: str = "benchmark" # TODO
+    # benchmark_dir: str = "benchmark" # TODO: Is this even a good way of doing this? Explore alternatives
+    swm: str = "none"
     runner: str = "local"
     samples: dict[str, Path] = {}
     flows: dict[str, FlowConfig] = (
@@ -68,7 +75,26 @@ class Config(BaseModel):
         log_fp = Path(self.log_fp)
         if not log_fp.is_absolute():
             log_fp = self.project_fp / log_fp
-        if not log_fp.exists():
-            log_fp.mkdir(parents=True)
 
         return log_fp
+
+    def get_runner(self, flow_config: FlowConfig) -> AutobfxRunner:
+        try:
+            swm = swm_map[self.swm]()
+        except KeyError:
+            raise ValueError(
+                f"Software manager {self.swm} type is not supported or is not installed"
+            )
+
+        try:
+            return runner_map[self.runner](
+                swm,
+                options={
+                    "conda_env": flow_config.conda,
+                    "docker_img": flow_config.image,
+                },
+            )
+        except KeyError:
+            raise ValueError(
+                f"Runner {self.runner} type is not supported or is not installed"
+            )

@@ -1,7 +1,6 @@
-import os
 from pathlib import Path
-from prefect_shell import ShellOperation
 from autobfx.lib.io import IOObject, IOReads
+from autobfx.lib.runner import AutobfxRunner
 
 
 def run_trimmomatic(
@@ -9,8 +8,8 @@ def run_trimmomatic(
     extra_inputs: dict[str, list[IOObject]],
     output_reads: list[IOReads],
     extra_outputs: dict[str, list[IOObject]],
-    # runner
     log_fp: Path,
+    runner: AutobfxRunner,
     threads: int = 1,
     leading: int = 3,
     trailing: int = 3,
@@ -24,7 +23,7 @@ def run_trimmomatic(
         adapter_template = None
 
     cmd = ["trimmomatic"]
-    cmd += ["PE"] if not input_reads[0].r2 else ["SE"]
+    cmd += ["PE"] if input_reads[0].r2 else ["SE"]
     cmd += ["-threads", str(threads)]
     cmd += ["-phred33"]
     cmd += (
@@ -47,22 +46,8 @@ def run_trimmomatic(
     cmd += ["TRAILING:" + str(trailing)]
     cmd += ["SLIDINGWINDOW:" + str(sw_start) + ":" + str(sw_end)]
     cmd += ["MINLEN:" + str(minlen)]
+    cmd += ["2>&1", str(log_fp)]
 
-    print(f"Running {' '.join(cmd)}")
-
-    with ShellOperation(
-        commands=[
-            f"source {os.environ.get('CONDA_PREFIX', '')}/etc/profile.d/conda.sh",
-            f"conda activate trimmomatic",
-            " ".join(cmd),
-        ],
-        stream_output=False,
-    ) as shell_operation:
-        shell_process = shell_operation.trigger()
-        shell_process.wait_for_completion()
-        shell_output = shell_process.fetch_result()
-
-    with open(log_fp, "w") as f:
-        f.writelines(shell_output)
+    runner.run_cmd(cmd)
 
     return 1

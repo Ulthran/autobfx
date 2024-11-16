@@ -1,7 +1,6 @@
-import os
 from pathlib import Path
-from prefect_shell import ShellOperation
 from autobfx.lib.io import IOObject, IOReads
+from autobfx.lib.runner import AutobfxRunner
 
 
 def run_build_host_index(
@@ -10,25 +9,11 @@ def run_build_host_index(
     output_reads: list[IOReads],
     extra_outputs: dict[str, list[IOObject]],
     log_fp: Path,
+    runner: AutobfxRunner,
 ) -> Path:
-    cmd = ["bwa", "index", str(extra_inputs["host"][0].fp)]
+    cmd = ["bwa", "index", str(extra_inputs["host"][0].fp), "2>&1", str(log_fp)]
 
-    print(f"Running {' '.join(cmd)}")
-
-    with ShellOperation(
-        commands=[
-            f"source {os.environ.get('CONDA_PREFIX', '')}/etc/profile.d/conda.sh",
-            f"conda activate bwa",
-            " ".join(cmd),
-        ],
-        stream_output=False,
-    ) as shell_operation:
-        shell_process = shell_operation.trigger()
-        shell_process.wait_for_completion()
-        shell_output = shell_process.fetch_result()
-
-    with open(log_fp, "w") as f:
-        f.writelines(shell_output)
+    runner.run_cmd(cmd)
 
     return 1
 
@@ -39,6 +24,7 @@ def run_align_to_host(
     output_reads: list[IOReads],
     extra_outputs: dict[str, list[IOObject]],
     log_fp: Path,
+    runner: AutobfxRunner,
     threads: int = 1,
 ) -> Path:
     cmd = ["bwa", "mem", "-M"]
@@ -50,22 +36,8 @@ def run_align_to_host(
         else [str(input_reads[0].fp)]
     )
     cmd += ["-o", str(output_reads[0].fp.parent)]
+    cmd += ["2>&1", str(log_fp)]
 
-    print(f"Running {' '.join(cmd)}")
-
-    with ShellOperation(
-        commands=[
-            f"source {os.environ.get('CONDA_PREFIX', '')}/etc/profile.d/conda.sh",
-            f"conda activate bwa",
-            " ".join(cmd),
-        ],
-        stream_output=False,
-    ) as shell_operation:
-        shell_process = shell_operation.trigger()
-        shell_process.wait_for_completion()
-        shell_output = shell_process.fetch_result()
-
-    with open(log_fp, "w") as f:
-        f.writelines(shell_output)
+    runner.run_cmd(cmd)
 
     return 1
