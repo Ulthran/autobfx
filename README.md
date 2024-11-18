@@ -1,4 +1,4 @@
-[Logo](autobfx_logo.png)
+![Logo](autobfx_logo.png)
 
 # autobfx
 
