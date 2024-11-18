@@ -59,6 +59,41 @@ class NoManager(AutobfxSoftwareManager):
         func(*func_args, **func_kwargs)
 
 
+class VenvManager(AutobfxSoftwareManager):
+    def __init__(self):
+        self.name = "venv"
+
+    def run_cmd(self, cmd: list[str], options: dict = {}):
+        try:
+            venv = options["venv"]
+        except KeyError:
+            raise KeyError("VenvManager requires a venv key in options")
+
+        print(f"Running (in {venv} venv): {' '.join(cmd)}")
+
+        with ShellOperation(
+            commands=[
+                f"source {options['venv']}/bin/activate",
+                " ".join(cmd),
+            ],
+        ) as shell_operation:
+            shell_process = shell_operation.trigger()
+            shell_process.wait_for_completion()
+
+    def run_func(
+        self,
+        func: callable,
+        func_args: list = [],
+        func_kwargs: dict = {},
+        options: dict = {},
+    ):
+        print(
+            f"Running func {func.__name__} with args {func_args} and kwargs {func_kwargs}"
+        )
+
+        pass  # TODO
+
+
 class CondaManager(AutobfxSoftwareManager):
     def __init__(self):
         self.name = "conda"
@@ -113,6 +148,32 @@ class MambaManager(CondaManager):
     ):
         options["solver"] = self.name
         super().run_func(func, func_args, func_kwargs, options)
+
+
+class DockerManager(AutobfxSoftwareManager):
+    def __init__(self):
+        self.name = "docker"
+
+    def run_cmd(self, cmd: list[str], options: dict = {}):
+        try:
+            img = options["docker_img"]
+        except KeyError:
+            raise KeyError("DockerManager requires a docker_img key in options")
+
+        print(f"Running (in {img} docker img): {' '.join(cmd)}")
+
+        with ShellOperation(
+            commands=[
+                f"docker run -v {os.getcwd()}:/data -w /data {img} {' '.join(cmd)}",
+            ],
+        ) as shell_operation:
+            shell_process = shell_operation.trigger()
+            shell_process.wait_for_completion()
+
+    def run_func(
+        self, func: callable, args: list = [], kwargs: dict = {}, options: dict = {}
+    ):
+        pass  # TODO
 
 
 class AutobfxRunner(ABC):
@@ -183,6 +244,7 @@ class LocalRunner(AutobfxRunner):
 # TODO: Make proper registries for these (and flows) for plugins to work with
 swm_map: dict[str, Type[AutobfxSoftwareManager]] = {
     "none": NoManager,
+    "venv": VenvManager,
     "conda": CondaManager,
     "mamba": MambaManager,
 }

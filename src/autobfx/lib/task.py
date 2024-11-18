@@ -2,7 +2,7 @@ from pathlib import Path
 from prefect import tags, task
 from typing import Callable
 from autobfx.lib.io import IOObject, IOReads
-from autobfx.lib.runner import AutobfxRunner, LocalRunner, NoManager
+from autobfx.lib.runner import AutobfxRunner, DryRunner, LocalRunner, NoManager
 
 
 class AutobfxTask:
@@ -42,6 +42,7 @@ class AutobfxTask:
         }
         self.log_fp = log_fp
         self.runner = runner
+        self.dryrun = True if isinstance(self.runner, DryRunner) else False
         self.args = args
         self.kwargs = kwargs
 
@@ -65,7 +66,8 @@ class AutobfxTask:
                 **self.kwargs,
             )
 
-            self.done_fp.touch()
+            if not self.dryrun:
+                self.done_fp.touch()
 
             return output
 
@@ -101,18 +103,19 @@ class AutobfxTask:
             self.done_fp.parent.mkdir(parents=True)
 
     def _run(self, submit: bool = False, wait_for: list = None):
-        if not self._check():
-            if submit:
+        if not self.dryrun:
+            if not self._check():
+                if submit:
 
-                class AlreadyDone:
-                    def result(self):
-                        return None
+                    class AlreadyDone:
+                        def result(self):
+                            return None
 
-                return AlreadyDone()
-            else:
-                return None
+                    return AlreadyDone()
+                else:
+                    return None
 
-        self._setup_run()
+            self._setup_run()
 
         with tags(self.name, *self.ids):
             if submit:

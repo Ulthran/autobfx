@@ -5,6 +5,7 @@ from autobfx.flows.bwa import build_host_index_flow, align_to_host_flow
 from autobfx.flows.qc import qc_flow
 from autobfx.flows.decontam import decontam_flow
 from autobfx.flows.clean_shotgun import clean_shotgun_flow
+from autobfx.flows.logo import logo_flow
 from pathlib import Path
 
 
@@ -18,4 +19,5 @@ flows = {
     "qc:qc_flow": qc_flow,
     "decontam:decontam_flow": decontam_flow,
     "clean_shotgun:clean_shotgun_flow": clean_shotgun_flow,
+    "logo:logo_flow": logo_flow,
 }
