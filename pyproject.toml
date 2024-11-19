@@ -29,7 +29,7 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
 ]
 dependencies = [
-    "prefect==3.0.1",
+    "prefect==3.1.2",
     "prefect[docker]",
     "prefect[shell]",
 ]
