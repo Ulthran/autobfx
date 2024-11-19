@@ -10,7 +10,7 @@ def run_fastqc(
     extra_outputs: dict[str, list[IOObject]],
     log_fp: Path,
     runner: AutobfxRunner,
-) -> Path:
+):
     cmd = ["fastqc"]
     cmd += ["-o", str(output_reads[0].fp.parent)]
     cmd += (
@@ -21,6 +21,4 @@ def run_fastqc(
     cmd += ["-extract"]
     cmd += ["2>&1", str(log_fp)]
 
-    runner.run_cmd(cmd)
-
-    return 1
+    return runner.run_cmd(cmd)
