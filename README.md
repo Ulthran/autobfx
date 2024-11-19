@@ -10,18 +10,7 @@ To suite the AI hype: have a simple, pretrained LLM optionally look through logs
 
 ## NOTES IN DEV
 
-Run a flow directly: `python flows/flow_name.py /path/to/project/`
-Supported workflows:
--  Running a whole pipeline (e.g. qc & decontam) on a set of samples (run pipeline flow) `python /path/to/qc.py projects/example`
--  Running a whole pipeline on a single sample (run pipeline flow with defined `samples`) `python /path/to/qc.py projects/example --samples tests/data/reads/LONG_R1.fastq.gz`
--  Running a single step on a set of samples (run flow) `python /path/to/fastqc.py projects/example`
--  Running a single step on a single sample (run flow with defined `samples`) `python /path/to/fastqc.py projects/example --samples tests/data/reads/LONG_R1.fastq.gz`
 
-## TODO
-
--  Conda manager (docker should be easy, singularity might not be)
-  -  Do we not bother? Just let users manage this
--  DAG-esque thing to know what work to do and not to do (marker files?)
 
 ## Getting started
 
