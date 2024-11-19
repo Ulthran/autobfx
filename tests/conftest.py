@@ -1,6 +1,8 @@
 import pytest
 import shutil
+from importlib.machinery import SourceFileLoader
 from pathlib import Path
+from src.autobfx.lib.config import Config
 from src.autobfx.lib.runner import TestRunner
 from src.autobfx.scripts.init import main as Init
 
@@ -11,11 +13,16 @@ def data_fp() -> Path:
 
 
 @pytest.fixture()
-def dummy_project_fp(data_fp: Path, tmp_path: Path) -> Path:
+def dummy_project(data_fp: Path, tmp_path: Path) -> Config:
     project_fp = tmp_path / "projects" / "test"
     shutil.copytree(data_fp / "example_project", project_fp)
 
-    return project_fp
+    config_source = SourceFileLoader(
+        "config", str(project_fp / "config.py")
+    ).load_module()
+    config = Config(**config_source.config)
+
+    return config
 
 
 @pytest.fixture
