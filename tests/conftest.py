@@ -1,12 +1,10 @@
-import os
 import pytest
-import sys
+import shutil
+from importlib.machinery import SourceFileLoader
 from pathlib import Path
-
-# from autobfx.scripts.init import main as Init
-
-# Ensure 'src' is in the Python path for package imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
+from src.autobfx.lib.config import Config
+from src.autobfx.lib.runner import TestRunner
+from src.autobfx.scripts.init import main as Init
 
 
 @pytest.fixture()
@@ -15,10 +13,26 @@ def data_fp() -> Path:
 
 
 @pytest.fixture()
-def dummy_project_fp(data_fp: Path, tmp_path: Path) -> Path:
+def dummy_project(data_fp: Path, tmp_path: Path) -> Config:
     project_fp = tmp_path / "projects" / "test"
-    config = Init([str(project_fp)])
-    config.flows["trimmomatic"].input = data_fp / "reads"
-    config.config_to_yaml(project_fp / "config.yaml")
+    shutil.copytree(data_fp / "example_project", project_fp)
 
-    return project_fp
+    config_source = SourceFileLoader(
+        "config", str(project_fp / "config.py")
+    ).load_module()
+    config = Config(**config_source.config)
+
+    return config
+
+
+@pytest.fixture
+def test_runner() -> TestRunner:
+    def run_cmd(cmd: list[str], opts: dict = {}):
+        print(" ".join(cmd))
+        return cmd
+
+    def run_func(func: callable, args: list, kwargs: dict, opts: dict = {}):
+        print(f"Running {func.__name__} with args {args} and kwargs {kwargs}")
+        return func
+
+    return TestRunner(run_cmd=run_cmd, run_func=run_func)

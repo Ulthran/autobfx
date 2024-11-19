@@ -211,6 +211,7 @@ class DryRunner(AutobfxRunner):
         print(
             f"Would run (with {self.swm.name} manager and options {opts}): {' '.join(cmd)}"
         )
+        return 1
 
     def run_func(
         self, func: callable, args: list = [], kwargs: dict = {}, options: dict = {}
@@ -220,6 +221,7 @@ class DryRunner(AutobfxRunner):
         print(
             f"Would run func {func.__name__} with args {args} and kwargs {kwargs} with {self.swm.name} manager and options {opts}"
         )
+        return 1
 
 
 class LocalRunner(AutobfxRunner):
@@ -232,6 +234,7 @@ class LocalRunner(AutobfxRunner):
         opts = self.options.copy()
         opts.update(options)
         self.swm.run_cmd(cmd, opts)
+        return 1  # TODO: Return something useful
 
     def run_func(
         self, func: callable, args: list = [], kwargs: dict = {}, options: dict = {}
@@ -239,6 +242,7 @@ class LocalRunner(AutobfxRunner):
         opts = self.options.copy()
         opts.update(options)
         self.swm.run_func(func, args=args, kwargs=kwargs, options=opts)
+        return 1
 
 
 # TODO: Make proper registries for these (and flows) for plugins to work with
@@ -254,3 +258,30 @@ runner_map: dict[str, Type[AutobfxRunner]] = {
     "local": LocalRunner,
     "dryrun": DryRunner,
 }
+
+
+class TestRunner(AutobfxRunner):
+    def __init__(
+        self,
+        run_cmd: callable,
+        run_func: callable,
+        swm: AutobfxSoftwareManager = NoManager(),
+        options: dict = {},
+    ):
+        self.name = "test"
+        self._run_cmd = run_cmd
+        self._run_func = run_func
+        self.swm = swm
+        self.options = options
+
+    def run_cmd(self, cmd: list[str], options: dict = {}):
+        opts = self.options.copy()
+        opts.update(options)
+        return self._run_cmd(cmd, opts)
+
+    def run_func(
+        self, func: callable, args: list = [], kwargs: dict = {}, options: dict = {}
+    ):
+        opts = self.options.copy()
+        opts.update(options)
+        return self._run_func(func, args=args, kwargs=kwargs, options=opts)

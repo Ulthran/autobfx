@@ -37,3 +37,7 @@ class IOReads(IOObject):
             if self.r2
             else IOReads(output_fp / self.fp.name)
         )
+
+    @staticmethod
+    def infer_r2(r1: Path, marker_char: str = "_R") -> Path:
+        return r1.parent / (r1.name.replace(f"{marker_char}1", f"{marker_char}2"))

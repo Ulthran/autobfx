@@ -33,8 +33,8 @@ def default_config(project_fp: Path, name: str = None) -> Config:
 
 
 def main(argv):
-    print("WIP, not sure if we'll even end up having it (probably will though)")
-    return
+    print("NOT IMPLEMENTED YET")
+    print("Not sure we're going to have this, probably will, but not sure")
 
     parser = argparse.ArgumentParser(description="Initialize a new project")
     parser.add_argument("project_fp", type=str, help="Filepath to the project")
@@ -47,7 +47,6 @@ def main(argv):
     os.makedirs(project_fp / ".autobfx" / "done", exist_ok=True)
 
     config = default_config(project_fp)
-    # config.config_to_yaml(config_fp)
     config.config_to_py(config_fp)  # TODO
 
     print(f"Created project at {project_fp}")
