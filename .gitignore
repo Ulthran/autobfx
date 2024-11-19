@@ -26,6 +26,8 @@ eggs/
 lib/
 # Custom
 !src/autobfx/lib/
+!tests/lib/
+# End custom
 lib64/
 parts/
 sdist/
