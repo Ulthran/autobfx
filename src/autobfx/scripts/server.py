@@ -3,7 +3,7 @@ import subprocess
 import requests
 
 
-def check_server_status():
+def check_server_status(port: int = 4200):
     """Check if the Prefect server is running and its HTTP status."""
     try:
         # Use pgrep to find the PID of the Prefect server
@@ -20,7 +20,7 @@ def check_server_status():
         else:
             # Check HTTP status of the Prefect server
             try:
-                response = requests.head("http://127.0.0.1:4200/api", timeout=2)
+                response = requests.head(f"http://127.0.0.1:{port}/api", timeout=2)
                 print(
                     f"Prefect server is running at PID {server_pid} "
                     f"with status: {response.status_code} {response.reason}"
@@ -33,30 +33,39 @@ def check_server_status():
         print(f"Error checking server status: {e}")
 
 
-def start_server():
+def start_server(port: int = 4200, ui: bool = True):
     """Start the Prefect server."""
-    subprocess.Popen(
-        [
-            "prefect",
-            "server",
-            "start",
-            "2>",
-            "autobfx_server_output.err",
-            ">",
-            "autobfx_server_output.log",
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
+    # Check that the server isn't already running
+    if requests.head(f"http://127.0.0.1:{port}/api", timeout=2).status_code == 200:
+        print("Prefect server is already running.")
+        return
+
+    with (
+        open("autobfx_server_output.err", "w") as err_file,
+        open("autobfx_server_output.log", "w") as log_file,
+    ):
+        subprocess.Popen(
+            [
+                "prefect",
+                "server",
+                "start",
+                "--port",
+                str(port),
+                "--ui" if ui else "--no-ui",
+                "--background",
+            ],
+            stdout=log_file,
+            stderr=err_file,
+            start_new_session=True,
+        )
     print("Prefect server started.\n")
 
 
-def stop_server():
+def stop_server(port: int = 4200):
     """Stop the Prefect server."""
     try:
         result = subprocess.run(
-            ["pkill", "-f", "prefect server"],
+            ["pkill", "-f", f"prefect server start --port {port}"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
