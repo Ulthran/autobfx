@@ -1,36 +1,70 @@
 import argparse
-from prefect.worker import Worker
+import subprocess
+import sys
+
+
+def start_worker(name: str, work_pool: str):
+    """Start a Prefect worker."""
+    subprocess.Popen(
+        [
+            "prefect",
+            "worker",
+            "start",
+            "-n",
+            f'"{name}"',
+            "-p",
+            f'"{work_pool}"',
+            "2>",
+            "autobfx_worker_output.err",
+            ">",
+            "autobfx_worker_output.log",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    print("Prefect server started.\n")
+
+
+def stop_worker(name: str, work_pool: str):
+    pass
 
 
 def main(argv):
-    parser = argparse.ArgumentParser(description="Manage Prefect workers")
-    parser.add_argument("work_pool", type=str, help="Name of the work pool")
+    parser = argparse.ArgumentParser(description="Manage Prefect workers.")
+    subparsers = parser.add_subparsers(title="Commands", dest="command")
     parser.add_argument(
-        "--worker_name", type=str, help="Name of the worker", default="default"
+        "--name",
+        type=str,
+        help="Name of the worker.",
     )
-    subparsers = parser.add_subparsers(dest="command", help="Sub-command help")
+    parser.add_argument(
+        "--work_pool",
+        type=str,
+        help="Name of the work pool.",
+    )
 
-    # Subparser for the start command
-    parser_start = subparsers.add_parser("start", help="Start a worker")
+    # Start command
+    start_parser = subparsers.add_parser("start", help="Start a Prefect worker.")
 
-    # Subparser for the stop command
-    parser_stop = subparsers.add_parser("stop", help="Stop a worker")
+    # Stop command
+    stop_parser = subparsers.add_parser("stop", help="Stop a Prefect worker.")
 
-    # Subparser for the check command
-    parser_check = subparsers.add_parser("check", help="Check a worker's status")
+    # Status command
+    subparsers.add_parser(
+        "status", help="Check on running Prefect workers in the dashboard."
+    )
 
     args = parser.parse_args(argv)
 
-    # Create a worker for a specific work pool
-    worker = Worker(
-        work_pool_name=args.work_pool,
-        work_queue_name="default",
-        worker_name=args.worker_name,
-    )
-
     if args.command == "start":
-        worker.run()
+        start_worker(args.name, args.work_pool)
     elif args.command == "stop":
-        worker.stop()
-    elif args.command == "check":
-        worker.check_status()
+        stop_worker(args.name, args.work_pool)
+    elif args.command == "status":
+        print(
+            f"View dashboard at: http://127.0.0.1:4200/work-pools/work-pool/{args.work_pool}?tab=Workers"
+        )
+    else:
+        parser.print_help()
+        sys.stderr.write("Unrecognized command.\n")

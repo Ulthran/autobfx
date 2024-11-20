@@ -1,7 +1,10 @@
 name: Tests
 
 on:
-  workflow_call:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
   workflow_dispatch:
 
@@ -24,7 +27,7 @@ jobs:
           python -m pip install .[dev]
 
       - name: Run tests and collect coverage
-        run: pytest --cov --junitxml=junit.xml -o junit_family=legacy tests/
+        run: pytest --cov --junitxml=junit.xml -o junit_family=legacy tests/flows/ tests/lib/ tests/tasks/
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
@@ -54,7 +57,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest -s -vvvv -l --tb=long tests/
+          pytest -s -vvvv -l --tb=long tests/flows/ tests/lib/ tests/tasks/
 
   lint:
     name: Lint Code Base

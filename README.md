@@ -12,5 +12,13 @@
 
 ## Getting started
 
-After `git clone`ing the repo, run `python -m venv env/` to create a virtual environment, `source env/bin/activate` to activate it, and `pip install -r requirements.txt` to install the necessary packages. Then open up one terminal and start the prefect server with `prefect server start` (it'll show a message and then keep running until you cancel it, leave it running until you're done with AutoBfx), open another terminal and start a local work pool with `prefect work-pool create default` (creating a work pool named `default`) then run  (again, leave it running), and open a third terminal 
+### Installation
 
+Dev install from GitHub: `git clone https://github.com/Ulthran/autobfx/`
+`cd autobfx/`
+`venv env/`
+`source env/bin/activate`
+Install (optionally in editable mode): `pip install -e .`
+`bash cmd/start` (This is liable to be moved into the library)
+Initialize a project: `autobfx init projects/example/` (Doesn't work yet, still consider how this should be done)
+Fun dummy run to see that it's working: `autobfx run projects/example/ logo:logo_flow`
