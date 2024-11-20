@@ -3,6 +3,8 @@ import sys
 from autobfx import __version__
 from autobfx.scripts.init import main as Init
 from autobfx.scripts.run import main as Run
+from autobfx.scripts.server import main as Server
+from autobfx.scripts.worker import main as Worker
 
 
 def main():
@@ -11,6 +13,8 @@ def main():
         "subcommands:\n"
         "  init         \tInitialize a new project.\n"
         "  run          \tExecute the pipeline.\n"
+        "  server       \tManage Prefect server.\n"
+        "  worker       \tManage Prefect workers.\n"
     )
 
     parser = argparse.ArgumentParser(
@@ -36,6 +40,10 @@ def main():
         Run(remaining)
     elif args.command == "init":
         Init(remaining)
+    elif args.command == "server":
+        Server(remaining)
+    elif args.command == "worker":
+        Worker(remaining)
     else:
         parser.print_help()
         sys.stderr.write("Unrecognized command.\n")
