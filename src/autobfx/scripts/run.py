@@ -2,11 +2,12 @@ import argparse
 import os
 from autobfx.lib.config import Config
 from importlib.machinery import SourceFileLoader
+from prefect.client.schemas import FlowRun
 from prefect.deployments import run_deployment
 from pathlib import Path
 
 
-def main(argv):
+def main(argv) -> FlowRun:
     parser = argparse.ArgumentParser(description="Run a flow")
     parser.add_argument("project_fp", type=str, help="Filepath to the project")
     parser.add_argument("flow", type=str, help="The flow to run")
@@ -43,7 +44,7 @@ def main(argv):
         ignore_warnings=True,
     )
 
-    run_deployment(
+    return run_deployment(
         f"{flow_id.split(':')[0]}/{flow_id}_deployment",
         parameters={
             "config": config.dict(),
