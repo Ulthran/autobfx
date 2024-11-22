@@ -19,7 +19,7 @@ def get_random_free_port() -> int:
 
 def test_clean_shotgun(dummy_project, test_runner):
     test_port = get_random_free_port()
-    start_server(port=test_port, ui=False)
+    start_server(port=test_port, ui=False, wait=True)
     check_server_status(port=test_port)
-    stop_server(port=test_port)
+    stop_server(port=test_port, wait=True)
     assert False
