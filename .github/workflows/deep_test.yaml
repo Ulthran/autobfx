@@ -30,3 +30,12 @@ jobs:
       - name: Run tests
         run: |
           pytest -s -vvvv -l --tb=long tests/e2e/
+
+      - name: Dump logs
+        run: |
+          echo "Server logs"
+          cat autobfx_server_output.err
+          cat autobfx_server_output.log
+          echo "Worker logs"
+          cat autobfx_worker_default_default_output.err
+          cat autobfx_worker_default_default_output.log
