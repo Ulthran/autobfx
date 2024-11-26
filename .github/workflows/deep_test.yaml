@@ -25,6 +25,8 @@ jobs:
       - name: Start Autobfx
         run: |
           autobfx server start
+          sleep(5)
+          autobfx server status
           autobfx worker start --name default --work_pool default --type process
 
       - name: Run tests
