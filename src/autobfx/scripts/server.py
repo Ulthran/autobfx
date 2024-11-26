@@ -21,7 +21,7 @@ def check_server_status(host: str = LOCAL_HOST, port: int = 4200):
     try:
         # Use pgrep to find the PID of the Prefect server
         result = subprocess.run(
-            ["pgrep", "-f", "prefect server"],
+            ["pgrep", "-f", "prefect.server.api.server:create_app"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -60,6 +60,7 @@ def start_server(
     ):
         subprocess.Popen(
             [
+                "nohup",
                 "prefect",
                 "server",
                 "start",
@@ -70,7 +71,8 @@ def start_server(
             ],
             stdout=log_file,
             stderr=err_file,
-            start_new_session=True,
+            # start_new_session=True,
+            # process_group=1,
         )
 
     if wait:
@@ -80,17 +82,19 @@ def start_server(
         while started:
             started = ping_server(host, port)
             if time.time() - start_wait_time > max_wait_time:
-                print(f"Server did not start within {max_wait_time} seconds\n")
+                print(f"Server did not start within {max_wait_time} seconds.")
                 return
 
-    print("Prefect server started.\n")
+    print("Prefect server started.")
 
 
 def stop_server(host: str = LOCAL_HOST, port: int = 4200, wait: bool = True):
     """Stop the Prefect server."""
+    # Verify that user has shut down workers
+
     try:
         result = subprocess.run(
-            ["pkill", "-f", f"prefect server start --port {port}"],
+            ["prefect", "server", "stop"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -104,15 +108,15 @@ def stop_server(host: str = LOCAL_HOST, port: int = 4200, wait: bool = True):
                     running = ping_server(host, port)
                     if time.time() - start_wait_time > max_wait_time:
                         print(
-                            f"Attempted to kill server but it appears to still be running\n"
+                            f"Attempted to kill server but it appears to still be running."
                         )
                         return
 
-            print(f"Stopped all processes matching 'prefect server'.\n")
+            print(f"Stopped prefect server.")
         else:
-            print(f"No processes found matching 'prefect server'.\n")
+            print(f"Prefect server failed to stop.")
     except Exception as e:
-        print(f"Error stopping processes: {e}")
+        print(f"Error stopping server: {e}")
 
 
 def main(argv):

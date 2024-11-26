@@ -1,0 +1,3 @@
+# End-to-end tests
+
+Tests in this directory rely on a full, running version of the prefect server to test the e2e capabilities of autobfx. If you're running this locally, these tests will fail unless you have started the server with `autobfx server start` or by running a flow. If you're running this in a CI environment, make sure there is a step in the workflow before running these tests that starts the server.

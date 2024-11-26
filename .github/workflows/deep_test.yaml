@@ -24,8 +24,8 @@ jobs:
 
       - name: Start Autobfx
         run: |
-          bash cmd/start
-          bash cmd/status
+          autobfx server start
+          autobfx worker start --name default --work_pool default --type process
 
       - name: Run tests
         run: |

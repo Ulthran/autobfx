@@ -1,33 +1,91 @@
 import argparse
+import requests
 import subprocess
 import sys
+from autobfx.scripts.server import LOCAL_HOST
 
 
-def start_worker(name: str, work_pool: str):
+def start_worker(name: str, work_pool: str, worker_type: str):
     """Start a Prefect worker."""
     subprocess.Popen(
         [
+            "nohup",
             "prefect",
             "worker",
             "start",
-            "-n",
+            "--name",
             f'"{name}"',
-            "-p",
+            "--pool",
             f'"{work_pool}"',
+            "--type",
+            f'"{worker_type}"',
             "2>",
-            "autobfx_worker_output.err",
+            f"autobfx_worker_{name}_output.err",
             ">",
-            "autobfx_worker_output.log",
+            f"autobfx_worker_{name}_output.log",
+            "&",
         ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
     )
-    print("Prefect server started.\n")
+    print(f"Prefect worker {name} in pool {work_pool} started.\n")
 
 
 def stop_worker(name: str, work_pool: str):
-    pass
+    """Find the PID for a Prefect worker and stop it."""
+    result = subprocess.run(
+        ["pgrep", "-f", f"prefect worker --name {name} --pool {work_pool}"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode == 0:
+        pid = result.stdout.strip()
+        subprocess.run(["kill", pid])
+        print(f"Prefect worker {name} in pool {work_pool} stopped.\n")
+    else:
+        print(f"Prefect worker {name} in pool {work_pool} not found.\n")
+
+
+def list_workers(host: str = LOCAL_HOST, port: int = 4200):
+    """List all running Prefect workers and their PIDs."""
+    url = f"http://{host}:{port}/api/work_pools/filter"
+    headers = {"Content-Type": "application/json"}
+    data = {
+        "work_pools": {},  # Empty filter to get all work pools
+        "limit": 100,  # Adjust this number based on how many work pools you want to retrieve
+    }
+
+    response = requests.post(url, json=data, headers=headers)
+
+    if response.status_code == 200:
+        work_pools = response.json()
+        print("Work Pools:")
+        for pool in work_pools:
+            print(f"Name: {pool['name']}, Type: {pool['type']}, ID: {pool['id']}")
+
+        print("\nWorkers:")
+        for pool in work_pools:
+            # Get workers for each work pool
+            url = f"http://{host}:{port}/api/work_pools/{pool['name']}/workers/filter"
+            data = {
+                "workers": {},  # Empty filter to get all workers
+                "limit": 100,  # Adjust this number based on how many workers you want to retrieve
+            }
+            response = requests.post(url, json=data, headers=headers)
+
+            if response.status_code == 200:
+                workers = response.json()
+                for worker in workers:
+                    print(
+                        f"Name: {worker['name']}, Status: {worker['status']}, ID: {worker['id']}"
+                    )
+            else:
+                print(f"Error: {response.status_code}, {response.text}")
+    else:
+        print(f"Error: {response.status_code}, {response.text}")
+
+    print(
+        f"\nFor an interactive view, see the dashboard at: http://{host}:{port}/work-pools/work-pool/{work_pools[0]['name']}?tab=Workers"
+    )
 
 
 def main(argv):
@@ -46,25 +104,24 @@ def main(argv):
 
     # Start command
     start_parser = subparsers.add_parser("start", help="Start a Prefect worker.")
+    start_parser.add_argument("--type", type=str, help="Type of worker.")
 
     # Stop command
     stop_parser = subparsers.add_parser("stop", help="Stop a Prefect worker.")
 
-    # Status command
+    # List command
     subparsers.add_parser(
-        "status", help="Check on running Prefect workers in the dashboard."
+        "list", help="List all running Prefect workers and their PIDs."
     )
 
     args = parser.parse_args(argv)
 
     if args.command == "start":
-        start_worker(args.name, args.work_pool)
+        start_worker(args.name, args.work_pool, args.type)
     elif args.command == "stop":
         stop_worker(args.name, args.work_pool)
-    elif args.command == "status":
-        print(
-            f"View dashboard at: http://127.0.0.1:4200/work-pools/work-pool/{args.work_pool}?tab=Workers"
-        )
+    elif args.command == "list":
+        list_workers()
     else:
         parser.print_help()
         sys.stderr.write("Unrecognized command.\n")

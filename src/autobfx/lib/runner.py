@@ -1,6 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 from prefect_shell import ShellOperation
+from simple_slurm import Slurm
 from typing import Type
 
 
@@ -15,8 +16,9 @@ class AutobfxSoftwareManager(ABC):
         self.name = "abstract"
         # TODO: Consider adding options for the manager as a whole as well
 
+    # TODO: Consider renaming this to something like 'get_run_cmds'
     @abstractmethod
-    def run_cmd(self, cmd: list[str], options: dict = {}):
+    def run_cmd(self, cmd: list[str], options: dict = {}) -> list[str]:
         pass
 
     @abstractmethod
@@ -34,16 +36,8 @@ class NoManager(AutobfxSoftwareManager):
     def __init__(self):
         self.name = "none"
 
-    def run_cmd(self, cmd: list[str], options: dict = {}):
-        print(f"Running: {' '.join(cmd)}")
-
-        with ShellOperation(
-            commands=[
-                " ".join(cmd),
-            ],
-        ) as shell_operation:
-            shell_process = shell_operation.trigger()
-            shell_process.wait_for_completion()
+    def run_cmd(self, cmd: list[str], options: dict = {}) -> list[str]:
+        return [" ".join(cmd)]
 
     def run_func(
         self,
@@ -63,22 +57,21 @@ class VenvManager(AutobfxSoftwareManager):
     def __init__(self):
         self.name = "venv"
 
-    def run_cmd(self, cmd: list[str], options: dict = {}):
+    def _prep(self, options: dict = {}) -> str:
         try:
             venv = options["venv"]
         except KeyError:
             raise KeyError("VenvManager requires a venv key in options")
 
-        print(f"Running (in {venv} venv): {' '.join(cmd)}")
+        return venv
 
-        with ShellOperation(
-            commands=[
-                f"source {options['venv']}/bin/activate",
-                " ".join(cmd),
-            ],
-        ) as shell_operation:
-            shell_process = shell_operation.trigger()
-            shell_process.wait_for_completion()
+    def run_cmd(self, cmd: list[str], options: dict = {}) -> list[str]:
+        venv = self._prep(options)
+
+        return [
+            f"source {options['venv']}/bin/activate",
+            " ".join(cmd),
+        ]
 
     def run_func(
         self,
@@ -98,7 +91,7 @@ class CondaManager(AutobfxSoftwareManager):
     def __init__(self):
         self.name = "conda"
 
-    def run_cmd(self, cmd: list[str], options: dict[str, str]):
+    def _prep(self, options: dict = {}) -> tuple[str, str]:
         try:
             env = options["conda_env"]
         except KeyError:
@@ -109,17 +102,16 @@ class CondaManager(AutobfxSoftwareManager):
         except KeyError:
             solver_cmd = "conda"
 
-        print(f"Running (in {env} conda env): {' '.join(cmd)}")
+        return env, solver_cmd
 
-        with ShellOperation(
-            commands=[
-                f"source {os.environ.get('CONDA_PREFIX', '')}/etc/profile.d/conda.sh",
-                f"{solver_cmd} activate {env}",
-                " ".join(cmd),
-            ],
-        ) as shell_operation:
-            shell_process = shell_operation.trigger()
-            shell_process.wait_for_completion()
+    def run_cmd(self, cmd: list[str], options: dict[str, str]) -> list[str]:
+        env, solver_cmd = self._prep(options)
+
+        return [
+            "source {os.environ.get('CONDA_PREFIX', '')}/etc/profile.d/conda.sh",
+            f"{solver_cmd} activate {env}",
+            " ".join(cmd),
+        ]
 
     def run_func(
         self,
@@ -135,9 +127,9 @@ class MambaManager(CondaManager):
     def __init__(self):
         self.name = "mamba"
 
-    def run_cmd(self, cmd: list[str], options: dict = {}):
+    def run_cmd(self, cmd: list[str], options: dict = {}) -> list[str]:
         options["solver"] = self.name
-        super.run_cmd(cmd, options)
+        return super().run_cmd(cmd, options)
 
     def run_func(
         self,
@@ -154,21 +146,19 @@ class DockerManager(AutobfxSoftwareManager):
     def __init__(self):
         self.name = "docker"
 
-    def run_cmd(self, cmd: list[str], options: dict = {}):
+    def _prep(self, options: dict = {}) -> str:
         try:
             img = options["docker_img"]
         except KeyError:
             raise KeyError("DockerManager requires a docker_img key in options")
 
-        print(f"Running (in {img} docker img): {' '.join(cmd)}")
+        return img
 
-        with ShellOperation(
-            commands=[
-                f"docker run -v {os.getcwd()}:/data -w /data {img} {' '.join(cmd)}",
-            ],
-        ) as shell_operation:
-            shell_process = shell_operation.trigger()
-            shell_process.wait_for_completion()
+    def run_cmd(self, cmd: list[str], options: dict = {}):
+        img = self._prep(options)
+
+        # TODO: Figure out how to do this right
+        return [f"docker run -v {os.getcwd()}:/data -w /data {img} {' '.join(cmd)}"]
 
     def run_func(
         self, func: callable, args: list = [], kwargs: dict = {}, options: dict = {}
@@ -179,6 +169,8 @@ class DockerManager(AutobfxSoftwareManager):
 class AutobfxRunner(ABC):
     def __init__(self, swm: AutobfxSoftwareManager, options: dict = {}):
         self.name = "abstract"
+        self.work_pool_name = "default"
+        self.worker_type = "process"
         self.swm = swm
         self.options = options
 
@@ -202,12 +194,16 @@ class AutobfxRunner(ABC):
 class DryRunner(AutobfxRunner):
     def __init__(self, swm: AutobfxSoftwareManager, options: dict = {}):
         self.name = "dryrun"
+        self.work_pool_name = "default"
+        self.worker_type = "process"
         self.swm = swm
         self.options = options
+        print(f"DryRunner initialized with options: {options}")
 
     def run_cmd(self, cmd: list[str], options: dict = {}):
         opts = self.options.copy()
         opts.update(options)
+
         print(
             f"Would run (with {self.swm.name} manager and options {opts}): {' '.join(cmd)}"
         )
@@ -218,6 +214,7 @@ class DryRunner(AutobfxRunner):
     ):
         opts = self.options.copy()
         opts.update(options)
+
         print(
             f"Would run func {func.__name__} with args {args} and kwargs {kwargs} with {self.swm.name} manager and options {opts}"
         )
@@ -227,22 +224,75 @@ class DryRunner(AutobfxRunner):
 class LocalRunner(AutobfxRunner):
     def __init__(self, swm: AutobfxSoftwareManager, options: dict = {}):
         self.name = "local"
+        self.work_pool_name = "default"
+        self.worker_type = "process"
         self.swm = swm
         self.options = options
 
     def run_cmd(self, cmd: list[str], options: dict = {}):
         opts = self.options.copy()
         opts.update(options)
-        self.swm.run_cmd(cmd, opts)
+
+        with ShellOperation(
+            commands=self.swm.run_cmd(cmd, opts),
+        ) as shell_operation:
+            shell_process = shell_operation.trigger()
+            shell_process.wait_for_completion()
+
         return 1  # TODO: Return something useful
 
     def run_func(
         self, func: callable, args: list = [], kwargs: dict = {}, options: dict = {}
     ):
+        pass  # TODO
+
+
+class SLURMRunner(AutobfxRunner):
+    def __init__(self, swm: AutobfxSoftwareManager, options: dict = {}):
+        self.name = "slurm"
+        self.work_pool_name = "slurm"
+        self.worker_type = "process"
+        self.swm = swm
+        self.options = options
+
+    def run_cmd(self, cmd: list[str], options: dict = {}):
         opts = self.options.copy()
         opts.update(options)
-        self.swm.run_func(func, args=args, kwargs=kwargs, options=opts)
-        return 1
+        params = opts["params"]
+
+        slurm = Slurm(
+            cpus_per_task=params["threads"],
+            job_name=opts["job_name"],
+            output=f"%x-%j.out",
+        )
+
+        cmds = self.swm.run_cmd(cmd, opts)
+        for cmd in cmds[:-1]:
+            slurm.add_cmd(cmd)
+        slurm.sbatch(cmds[-1], sbatch_cmd=params.get("sbatch_cmd", "sbatch"))
+
+    def run_func(
+        self, func: callable, args: list = [], kwargs: dict = {}, options: dict = {}
+    ):
+        pass
+
+
+class ECSRunner(AutobfxRunner):
+    def __init__(self, swm: AutobfxSoftwareManager, options: dict = {}):
+        self.name = "ecs"
+        self.work_pool_name = "ecs"
+        self.worker_type = "ecs"
+        self.swm = swm
+        self.options = options
+
+    def run_cmd(self, cmd: list[str], options: dict = {}):
+        opts = self.options.copy()
+        opts.update(options)
+
+    def run_func(
+        self, func: callable, args: list = [], kwargs: dict = {}, options: dict = {}
+    ):
+        pass
 
 
 # TODO: Make proper registries for these (and flows) for plugins to work with

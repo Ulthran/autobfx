@@ -30,6 +30,7 @@ dependencies = [
     "prefect==3.0.1",
     "prefect[docker]",
     "prefect[shell]",
+    "simple-slurm==0.2.7",
 ]
 
 [project.optional-dependencies]

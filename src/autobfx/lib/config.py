@@ -8,6 +8,16 @@ from autobfx.lib.runner import (
 )
 
 
+class RunnerConfig(BaseModel):
+    # All the options that can be passed to the runner
+    threads: int = 1
+    mem_mb: int = 1024
+    runtime_sec: int = 120
+    # TODO: Add more options
+    # Any additional parameters that can be passed to specific runner types
+    parameters: dict[str, str | int | float | Path | list | dict] = {}
+
+
 class FlowConfig(BaseModel):
     # A directory or list of directories containing input reads
     input_reads: Path | str | list[Path | str] = ""
@@ -21,6 +31,7 @@ class FlowConfig(BaseModel):
     conda: str = "base"
     image: str = ""
     parameters: dict[str, str | int | float | Path | list | dict] = {}
+    runner_config: RunnerConfig = RunnerConfig()
 
     def _parse_io_dir(self, input_fp: Path, project_fp: Path) -> Path:
         if not input_fp.is_absolute():
@@ -92,6 +103,7 @@ class Config(BaseModel):
                 options={
                     "conda_env": flow_config.conda,
                     "docker_img": flow_config.image,
+                    "params": flow_config.runner_config,
                 },
             )
         except KeyError:

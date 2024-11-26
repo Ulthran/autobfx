@@ -42,6 +42,7 @@ class AutobfxTask:
         }
         self.log_fp = log_fp
         self.runner = runner
+        self.runner.options["job_name"] = f"{self.name}_{'_'.join(self.ids)}"
         self.dryrun = True if isinstance(self.runner, DryRunner) else False
         self.args = args
         self.kwargs = kwargs
@@ -53,7 +54,7 @@ class AutobfxTask:
             / f".{self.name}_{'_'.join(self.ids)}.done"
         )
 
-        @task(name=f"{self.name}_{'_'.join(list(self.ids))}")
+        @task(name=self.runner.options["job_name"])
         def _runner_func():
             output = self._func(
                 self.input_reads,
