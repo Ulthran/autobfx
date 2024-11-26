@@ -1,22 +1,34 @@
 import argparse
 import requests
+import socket
 import subprocess
 import time
 
 
 LOCAL_HOST = "127.0.0.1"
+DEFAULT_PORT = 4200
 
 
-def ping_server(host: str = LOCAL_HOST, port: int = 4200) -> bool:
+def ping_server(host: str = LOCAL_HOST, port: int = DEFAULT_PORT) -> bool:
     """Ping the Prefect server."""
     try:
-        response = requests.head(f"http://{host}:{port}/api", timeout=2)
+        response = requests.get(f"http://{host}:{port}/api/ready", timeout=2)
         return response.status_code == 200
     except requests.exceptions.RequestException:
         return False
 
 
-def check_server_status(host: str = LOCAL_HOST, port: int = 4200):
+def check_port(host: str = LOCAL_HOST, port: int = DEFAULT_PORT) -> bool:
+    """Check if the port is available. The Prefect server will often be slower to release the port than to shutdown the server process itself."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind((host, port))
+    except OSError:
+        return False
+    return True
+
+
+def check_server_status(host: str = LOCAL_HOST, port: int = DEFAULT_PORT):
     """Check if the Prefect server is running and its HTTP status."""
     try:
         # Use pgrep to find the PID of the Prefect server
@@ -46,12 +58,17 @@ def check_server_status(host: str = LOCAL_HOST, port: int = 4200):
 
 
 def start_server(
-    host: str = LOCAL_HOST, port: int = 4200, ui: bool = True, wait: bool = True
+    host: str = LOCAL_HOST, port: int = DEFAULT_PORT, ui: bool = True, wait: bool = True
 ):
     """Start the Prefect server."""
     # Check that the server isn't already running
     if ping_server(host, port):
         print("Prefect server is already running.")
+        return
+    if not check_port(host, port):
+        print(
+            f"Port {port} is already in use. This usually happens if quickly stop and start the server. If this is the case, wait a few seconds and try again. You can use `lsof -i :{port}` to see what process is using the port."
+        )
         return
 
     with (
@@ -77,7 +94,7 @@ def start_server(
         max_wait_time = 10
         start_wait_time = time.time()
         started = ping_server(host, port)
-        while started:
+        while not started:
             started = ping_server(host, port)
             if time.time() - start_wait_time > max_wait_time:
                 print(f"Server did not start within {max_wait_time} seconds.")
@@ -86,7 +103,7 @@ def start_server(
     print("Prefect server started.")
 
 
-def stop_server(host: str = LOCAL_HOST, port: int = 4200, wait: bool = True):
+def stop_server(host: str = LOCAL_HOST, port: int = DEFAULT_PORT, wait: bool = True):
     """Stop the Prefect server."""
     # Verify that user has shut down workers
 

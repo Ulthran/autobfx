@@ -80,10 +80,6 @@ class VenvManager(AutobfxSoftwareManager):
         func_kwargs: dict = {},
         options: dict = {},
     ):
-        print(
-            f"Running func {func.__name__} with args {func_args} and kwargs {func_kwargs}"
-        )
-
         pass  # TODO
 
 
@@ -138,8 +134,7 @@ class MambaManager(CondaManager):
         func_kwargs: dict = {},
         options: dict = {},
     ):
-        options["solver"] = self.name
-        super().run_func(func, func_args, func_kwargs, options)
+        pass
 
 
 class DockerManager(AutobfxSoftwareManager):
@@ -204,9 +199,7 @@ class DryRunner(AutobfxRunner):
         opts = self.options.copy()
         opts.update(options)
 
-        print(
-            f"Would run (with {self.swm.name} manager and options {opts}): {' '.join(cmd)}"
-        )
+        print(f"Would run: {self.swm.run_cmd(cmd, opts)}")
         return 1
 
     def run_func(
@@ -216,7 +209,7 @@ class DryRunner(AutobfxRunner):
         opts.update(options)
 
         print(
-            f"Would run func {func.__name__} with args {args} and kwargs {kwargs} with {self.swm.name} manager and options {opts}"
+            f"Would run func {func.__name__} with args {args} and kwargs {kwargs} with options {opts}"
         )
         return 1
 
@@ -258,10 +251,14 @@ class SLURMRunner(AutobfxRunner):
     def run_cmd(self, cmd: list[str], options: dict = {}):
         opts = self.options.copy()
         opts.update(options)
+        # params is a RunnerConfig object from the flow config
+        # It can't be imported here because it would create a circular import
         params = opts["params"]
 
         slurm = Slurm(
-            cpus_per_task=params["threads"],
+            cpus_per_task=params.threads,
+            mem=f"{params.mem_mb}M",
+            time=params.runtime_min,
             job_name=opts["job_name"],
             output=f"%x-%j.out",
         )
@@ -269,7 +266,11 @@ class SLURMRunner(AutobfxRunner):
         cmds = self.swm.run_cmd(cmd, opts)
         for cmd in cmds[:-1]:
             slurm.add_cmd(cmd)
-        slurm.sbatch(cmds[-1], sbatch_cmd=params.get("sbatch_cmd", "sbatch"))
+        job_id = slurm.sbatch(
+            cmds[-1], sbatch_cmd=params.parameters.get("sbatch_cmd", "sbatch")
+        )
+
+        # Wait for job to finish
 
     def run_func(
         self, func: callable, args: list = [], kwargs: dict = {}, options: dict = {}
@@ -289,6 +290,8 @@ class ECSRunner(AutobfxRunner):
         opts = self.options.copy()
         opts.update(options)
 
+        print("NOT IMPLEMENTED")
+
     def run_func(
         self, func: callable, args: list = [], kwargs: dict = {}, options: dict = {}
     ):
@@ -307,6 +310,8 @@ swm_map: dict[str, Type[AutobfxSoftwareManager]] = {
 runner_map: dict[str, Type[AutobfxRunner]] = {
     "local": LocalRunner,
     "dryrun": DryRunner,
+    "slurm": SLURMRunner,
+    "ecs": ECSRunner,
 }
 
 

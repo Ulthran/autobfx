@@ -11,8 +11,8 @@ from autobfx.lib.runner import (
 class RunnerConfig(BaseModel):
     # All the options that can be passed to the runner
     threads: int = 1
-    mem_mb: int = 1024
-    runtime_sec: int = 120
+    mem_mb: int = 8000
+    runtime_min: int = 120
     # TODO: Add more options
     # Any additional parameters that can be passed to specific runner types
     parameters: dict[str, str | int | float | Path | list | dict] = {}
