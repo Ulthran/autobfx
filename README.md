@@ -19,6 +19,4 @@ Dev install from GitHub: `git clone https://github.com/Ulthran/autobfx/`
 `venv env/`
 `source env/bin/activate`
 Install (optionally in editable mode): `pip install -e .`
-`bash cmd/start` (This is liable to be moved into the library)
-Initialize a project: `autobfx init projects/example/` (Doesn't work yet, still consider how this should be done)
-Fun dummy run to see that it's working: `autobfx run projects/example/ logo:logo_flow`
+Fun dummy run to see that it's working: `autobfx run tests/data/example_project/ logo:logo_flow`

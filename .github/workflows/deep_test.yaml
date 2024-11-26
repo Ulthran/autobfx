@@ -25,12 +25,13 @@ jobs:
       - name: Start Autobfx
         run: |
           autobfx server start
-          sleep 5
           autobfx server status
           autobfx worker start --name default --work_pool default --type process
 
       - name: Run tests
         run: |
+          autobfx server status
+          autobfx worker list
           pytest -s -vvvv -l --tb=long tests/e2e/
 
       - name: Dump logs

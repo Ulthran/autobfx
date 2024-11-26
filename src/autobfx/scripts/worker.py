@@ -151,6 +151,7 @@ def main(argv):
     status_parser.add_argument(
         "--work_pool",
         type=str,
+        required=True,
         help="Name of the work pool.",
     )
 
