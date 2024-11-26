@@ -32,6 +32,7 @@ jobs:
           pytest -s -vvvv -l --tb=long tests/e2e/
 
       - name: Dump logs
+        if: always()
         run: |
           echo "Server logs"
           cat autobfx_server_output.err
