@@ -7,26 +7,28 @@ from autobfx.scripts.server import LOCAL_HOST
 
 def start_worker(name: str, work_pool: str, worker_type: str):
     """Start a Prefect worker."""
-    subprocess.Popen(
-        [
-            "nohup",
-            "prefect",
-            "worker",
-            "start",
-            "--name",
-            f'"{name}"',
-            "--pool",
-            f'"{work_pool}"',
-            "--type",
-            f'"{worker_type}"',
-            "2>",
-            f"autobfx_worker_{name}_output.err",
-            ">",
-            f"autobfx_worker_{name}_output.log",
-            "&",
-        ],
-    )
-    print(f"Prefect worker {name} in pool {work_pool} started.\n")
+    with (
+        open(f"autobfx_worker_{work_pool}_{name}_output.err", "w") as err_file,
+        open(f"autobfx_worker_{work_pool}_{name}_output.log", "w") as log_file,
+    ):
+        subprocess.Popen(
+            [
+                "nohup",
+                "prefect",
+                "worker",
+                "start",
+                "--name",
+                f"{name}",
+                "--pool",
+                f"{work_pool}",
+                "--type",
+                f"{worker_type}",
+            ],
+            stdout=log_file,
+            stderr=err_file,
+            start_new_session=True,
+        )
+        print(f"Prefect worker {name} in pool {work_pool} started.")
 
 
 def stop_worker(name: str, work_pool: str):
@@ -40,9 +42,30 @@ def stop_worker(name: str, work_pool: str):
     if result.returncode == 0:
         pid = result.stdout.strip()
         subprocess.run(["kill", pid])
-        print(f"Prefect worker {name} in pool {work_pool} stopped.\n")
+        print(f"Prefect worker {name} in pool {work_pool} stopped.")
     else:
-        print(f"Prefect worker {name} in pool {work_pool} not found.\n")
+        print(f"Prefect worker {name} in pool {work_pool} not found.")
+
+
+def worker_status(work_pool: str, host: str = LOCAL_HOST, port: int = 4200) -> bool:
+    """Check if there is a running worker for a pool."""
+    url = f"http://{host}:{port}/api/work_pools/{work_pool}"
+    headers = {"Content-Type": "application/json"}
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        work_pool = response.json()
+        if work_pool["status"] == "READY":
+            print(f"At least one worker for pool {work_pool['name']} is running.")
+            return True
+        else:
+            print(f"No workers for pool {work_pool['name']} are running.")
+            return False
+    else:
+        print(f"Error: {response.status_code}, {response.text}")
+
+    return False
 
 
 def list_workers(host: str = LOCAL_HOST, port: int = 4200):
@@ -91,23 +114,45 @@ def list_workers(host: str = LOCAL_HOST, port: int = 4200):
 def main(argv):
     parser = argparse.ArgumentParser(description="Manage Prefect workers.")
     subparsers = parser.add_subparsers(title="Commands", dest="command")
-    parser.add_argument(
+
+    # Start command
+    start_parser = subparsers.add_parser("start", help="Start a Prefect worker.")
+    start_parser.add_argument(
         "--name",
         type=str,
         help="Name of the worker.",
     )
-    parser.add_argument(
+    start_parser.add_argument(
+        "--work_pool",
+        type=str,
+        help="Name of the work pool.",
+    )
+    start_parser.add_argument(
+        "--type", type=str, default="process", help="Type of worker (default: process)."
+    )
+
+    # Stop command
+    stop_parser = subparsers.add_parser("stop", help="Stop a Prefect worker.")
+    stop_parser.add_argument(
+        "--name",
+        type=str,
+        help="Name of the worker.",
+    )
+    stop_parser.add_argument(
         "--work_pool",
         type=str,
         help="Name of the work pool.",
     )
 
-    # Start command
-    start_parser = subparsers.add_parser("start", help="Start a Prefect worker.")
-    start_parser.add_argument("--type", type=str, help="Type of worker.")
-
-    # Stop command
-    stop_parser = subparsers.add_parser("stop", help="Stop a Prefect worker.")
+    # Status command
+    status_parser = subparsers.add_parser(
+        "status", help="Check if there is a running worker for a pool."
+    )
+    status_parser.add_argument(
+        "--work_pool",
+        type=str,
+        help="Name of the work pool.",
+    )
 
     # List command
     subparsers.add_parser(
@@ -120,8 +165,10 @@ def main(argv):
         start_worker(args.name, args.work_pool, args.type)
     elif args.command == "stop":
         stop_worker(args.name, args.work_pool)
+    elif args.command == "status":
+        return worker_status(args.work_pool)
     elif args.command == "list":
         list_workers()
     else:
         parser.print_help()
-        sys.stderr.write("Unrecognized command.\n")
+        sys.stderr.write("Unrecognized command.")

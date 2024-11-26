@@ -71,8 +71,6 @@ def start_server(
             ],
             stdout=log_file,
             stderr=err_file,
-            # start_new_session=True,
-            # process_group=1,
         )
 
     if wait:

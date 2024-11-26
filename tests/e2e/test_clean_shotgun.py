@@ -1,10 +1,16 @@
 from src.autobfx.scripts.run import main as Run
 
 
-def test_clean_shotgun(dummy_project, test_runner):
+def test_clean_shotgun_dryrun(dummy_project, test_runner):
     # Consider a way to modify config file to use test runner, dry runner is fine for now
 
-    flow_run = Run([str(dummy_project.project_fp), "clean_shotgun:clean_shotgun_flow"])
+    flow_run = Run(
+        [
+            str(dummy_project.project_fp),
+            "clean_shotgun:clean_shotgun_flow",
+            "--update_deployment",
+        ]
+    )
 
     print(flow_run)
     print(flow_run.name)

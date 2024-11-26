@@ -1,5 +1,7 @@
 # Custom
 projects/
+autobfx_*.log
+autobfx_*.err
 tests/data/hosts/.*.done
 tests/data/hosts/*.fasta.amb
 tests/data/hosts/*.fasta.ann
