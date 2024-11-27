@@ -19,6 +19,6 @@ def run_fastqc(
         else [str(input_reads[0].fp)]
     )
     cmd += ["-extract"]
-    cmd += ["2>&1", str(log_fp)]
+    cmd += [">", str(log_fp), "2>&1"]
 
     return runner.run_cmd(cmd)

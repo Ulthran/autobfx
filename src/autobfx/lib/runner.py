@@ -104,7 +104,7 @@ class CondaManager(AutobfxSoftwareManager):
         env, solver_cmd = self._prep(options)
 
         return [
-            "source {os.environ.get('CONDA_PREFIX', '')}/etc/profile.d/conda.sh",
+            f"source {os.environ.get('CONDA_PREFIX', '')}/etc/profile.d/conda.sh",
             f"{solver_cmd} activate {env}",
             " ".join(cmd),
         ]
@@ -226,6 +226,7 @@ class LocalRunner(AutobfxRunner):
         opts = self.options.copy()
         opts.update(options)
 
+        print(f"Running: {cmd}")
         with ShellOperation(
             commands=self.swm.run_cmd(cmd, opts),
         ) as shell_operation:

@@ -19,15 +19,16 @@ def deploy_and_run(
     main_root: Path,
     update_deployment: bool = False,
 ):
-    if update_deployment or os.environ.get("AUTOBFX_DEBUG", False):
-        flow.from_source(
-            source=str(main_root),
-            entrypoint=f"{flow_id.split(':')[0]}.py:{flow_id.split(':')[1]}",
-        ).deploy(
-            name=f"{flow_id}_deployment",
-            work_pool_name=work_pool_name,
-            ignore_warnings=True,
-        )
+    # if update_deployment or os.environ.get("AUTOBFX_DEBUG", False):
+    # TODO: Silence this, probably in a context manager setting stdout/stderr to /dev/null
+    flow.from_source(
+        source=str(main_root),
+        entrypoint=f"{flow_id.split(':')[0]}.py:{flow_id.split(':')[1]}",
+    ).deploy(
+        name=f"{flow_id}_deployment",
+        work_pool_name=work_pool_name,
+        ignore_warnings=True,
+    )
 
     print("Submitting flow...")
     try:

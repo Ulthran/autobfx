@@ -46,7 +46,7 @@ def run_trimmomatic(
     cmd += ["TRAILING:" + str(trailing)]
     cmd += ["SLIDINGWINDOW:" + str(sw_start) + ":" + str(sw_end)]
     cmd += ["MINLEN:" + str(minlen)]
-    cmd += ["2>&1", str(log_fp)]
+    cmd += [">", str(log_fp), "2>&1"]
 
     runner.run_cmd(cmd)
 

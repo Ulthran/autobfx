@@ -1,4 +1,4 @@
-from src.autobfx.lib.config import Config, FlowConfig
+from src.autobfx.lib.config import Config, FlowConfig, RunnerConfig
 
 
 def test_config():
@@ -14,3 +14,7 @@ def test_flow_config():
         input="test_input",
         output="test_output",
     )
+
+
+def test_runner_config():
+    runner_config = RunnerConfig()

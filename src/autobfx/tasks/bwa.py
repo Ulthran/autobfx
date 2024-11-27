@@ -11,7 +11,7 @@ def run_build_host_index(
     log_fp: Path,
     runner: AutobfxRunner,
 ) -> Path:
-    cmd = ["bwa", "index", str(extra_inputs["host"][0].fp), "2>&1", str(log_fp)]
+    cmd = ["bwa", "index", str(extra_inputs["host"][0].fp), ">", str(log_fp), "2>&1"]
 
     runner.run_cmd(cmd)
 
@@ -36,7 +36,7 @@ def run_align_to_host(
         else [str(input_reads[0].fp)]
     )
     cmd += ["-o", str(output_reads[0].fp.parent)]
-    cmd += ["2>&1", str(log_fp)]
+    cmd += [">", str(log_fp), "2>&1"]
 
     runner.run_cmd(cmd)
 

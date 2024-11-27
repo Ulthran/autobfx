@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from prefect import tags, task
 from typing import Callable
@@ -68,7 +69,9 @@ class AutobfxTask:
             )
 
             if not self.dryrun:
-                self.done_fp.touch()
+                with open(self.done_fp, "w") as f:
+                    # TODO: Write enough config here to make the step fully reproducible
+                    json.dump(self.runner.options, f, default=vars)
 
             return output
 

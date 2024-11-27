@@ -26,7 +26,7 @@ def run_heyfastq(
         else ["--output", str(output_reads[0].fp)]
     )
     cmd += ["--min-kscore", str(min_kscore)]
-    cmd += ["2>&1", str(log_fp)]
+    cmd += [">", str(log_fp), "2>&1"]
 
     runner.run_cmd(cmd)
 

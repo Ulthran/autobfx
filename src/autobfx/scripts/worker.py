@@ -107,7 +107,7 @@ def list_workers(host: str = LOCAL_HOST, port: int = 4200):
         print(f"Error: {response.status_code}, {response.text}")
 
     print(
-        f"\nFor an interactive view, see the dashboard at: http://{host}:{port}/work-pools/work-pool/{work_pools[0]['name']}?tab=Workers"
+        f"\nFor an interactive view, see the dashboard at: http://{host}:{port}/work-pools/work-pool/default?tab=Workers"
     )
 
 
