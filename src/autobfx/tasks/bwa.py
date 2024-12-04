@@ -15,7 +15,7 @@ def run_build_host_index(
 
     runner.run_cmd(cmd)
 
-    return 1
+    return cmd
 
 
 def run_align_to_host(
@@ -35,9 +35,9 @@ def run_align_to_host(
         if input_reads[0].r2
         else [str(input_reads[0].fp)]
     )
-    cmd += ["-o", str(output_reads[0].fp.parent)]
+    cmd += ["-o", str(extra_outputs["sams"][0].fp)]
     cmd += [">", str(log_fp), "2>&1"]
 
     runner.run_cmd(cmd)
 
-    return 1
+    return cmd

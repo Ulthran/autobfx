@@ -10,7 +10,6 @@ def run_trimmomatic(
     extra_outputs: dict[str, list[IOObject]],
     log_fp: Path,
     runner: AutobfxRunner,
-    threads: int = 1,
     leading: int = 3,
     trailing: int = 3,
     sw_start: int = 4,
@@ -24,7 +23,7 @@ def run_trimmomatic(
 
     cmd = ["trimmomatic"]
     cmd += ["PE"] if input_reads[0].r2 else ["SE"]
-    cmd += ["-threads", str(threads)]
+    cmd += ["-threads", str(runner.options["params"].threads)]
     cmd += ["-phred33"]
     cmd += (
         [str(input_reads[0].fp), str(input_reads[0].r2)]
@@ -50,4 +49,4 @@ def run_trimmomatic(
 
     runner.run_cmd(cmd)
 
-    return 1
+    return cmd

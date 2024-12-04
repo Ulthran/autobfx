@@ -4,6 +4,7 @@ from pathlib import Path
 class IOObject:
     def __init__(self, fp: str | Path) -> None:
         self.fp = Path(fp)
+        self.done_fp = self.fp.parent / f".{self.fp.name}.done"
 
     def __dict__(self):
         return {"fp": str(self.fp)}

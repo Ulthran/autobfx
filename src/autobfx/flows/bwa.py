@@ -13,6 +13,7 @@ def BUILD_HOST_INDEX(config: Config, hosts: dict[str, Path] = None) -> AutobfxFl
     project_fp = config.project_fp
     flow_config = config.flows[NAME]
     extra_inputs = flow_config.get_extra_inputs(project_fp)
+    extra_outputs = flow_config.get_extra_outputs(project_fp)
     log_fp = config.get_log_fp() / NAME
     runner = config.get_runner(flow_config)
 
@@ -28,6 +29,12 @@ def BUILD_HOST_INDEX(config: Config, hosts: dict[str, Path] = None) -> AutobfxFl
             func=run_build_host_index,
             project_fp=project_fp,
             extra_inputs={"host": [fa]},
+            extra_outputs={
+                "host_indices": [
+                    extra_outputs["host_indices"][0] / f"{host_name}.fasta.{index}"
+                    for index in ["amb", "ann", "bwt", "pac", "sa"]
+                ]
+            },
             log_fp=log_fp / f"{host_name}.log",
             runner=runner,
             kwargs={
@@ -48,7 +55,7 @@ def ALIGN_TO_HOST(
     flow_config = config.flows[NAME]
     input_reads = flow_config.get_input_reads(project_fp)
     extra_inputs = flow_config.get_extra_inputs(project_fp)
-    output_reads = flow_config.get_output_reads(project_fp)
+    extra_outputs = flow_config.get_extra_outputs(project_fp)
     log_fp = config.get_log_fp() / NAME
     runner = config.get_runner(flow_config)
 
@@ -70,7 +77,9 @@ def ALIGN_TO_HOST(
             project_fp=project_fp,
             input_reads=[reads],
             extra_inputs={"host": [fa]},
-            output_reads=[reads.get_output_reads(output_reads[0])],
+            extra_outputs={
+                "sams": [extra_outputs["sams"][0] / f"{host_name}_{sample_name}.sam"]
+            },
             log_fp=log_fp / f"{sample_name}_{host_name}.log",
             runner=runner,
             kwargs={

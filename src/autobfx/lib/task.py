@@ -37,10 +37,16 @@ class AutobfxTask:
         self.extra_inputs = {
             k: [IOObject(x) for x in v] for k, v in extra_inputs.items()
         }
+        self.inputs = self.input_reads + [
+            i for ioo in self.extra_inputs.values() for i in ioo
+        ]
         self.output_reads = output_reads
         self.extra_outputs = {
             k: [IOObject(x) for x in v] for k, v in extra_outputs.items()
         }
+        self.outputs = self.output_reads + [
+            i for ioo in self.extra_outputs.values() for i in ioo
+        ]
         self.log_fp = log_fp
         self.runner = runner
         self.runner.options["job_name"] = f"{self.name}_{'_'.join(self.ids)}"
@@ -48,16 +54,9 @@ class AutobfxTask:
         self.args = args
         self.kwargs = kwargs
 
-        self.done_fp = (
-            self.project_fp
-            / ".autobfx"
-            / "done"
-            / f".{self.name}_{'_'.join(self.ids)}.done"
-        )
-
         @task(name=self.runner.options["job_name"])
         def _runner_func():
-            output = self._func(
+            cmd = self._func(
                 self.input_reads,
                 self.extra_inputs,
                 self.output_reads,
@@ -69,42 +68,47 @@ class AutobfxTask:
             )
 
             if not self.dryrun:
-                with open(self.done_fp, "w") as f:
-                    # TODO: Write enough config here to make the step fully reproducible
-                    json.dump(self.runner.options, f, default=vars)
+                for o in self.outputs:
+                    with open(o.done_fp, "w") as f:
+                        # TODO: Write enough config here to make the step fully reproducible
+                        json.dump(self.runner.options, f, default=vars)
+                        f.write(f"\ncmd: {cmd}")
 
-            return output
+            return cmd
 
         self._runner_func = _runner_func
 
     def _check(self) -> bool:
         # Will probably want to raise this to the flow level once we figure out more better flow abstraction
         # E.g. checking input files from an S3 bucket for 100 samples
-        for input_obj in self.input_reads + [
-            i for ioo in self.extra_inputs.values() for i in ioo
-        ]:
-            if not input_obj.check():
+        if not all(i.check() for i in self.inputs):
+            print(
+                f"{[i for i in self.inputs if not i.check()]} missing but required for {self.name}: {self.ids}"
+            )
+            return False
+
+        if any(o.done_fp.exists() for o in self.outputs):
+            if all(o.done_fp.exists() for o in self.outputs):
                 print(
-                    f"{dict(input_obj)} doesn't exist but is listed as an input for {self.name}: {self.ids}"
+                    f"Task run already completed by {[o.done_fp for o in self.outputs]}"
                 )
                 return False
-
-        if self.done_fp.exists():
-            print(f"Task run marked as already completed by {self.done_fp}")
-            return False
+            else:
+                print(
+                    f"Task run marked as partially completed by {[o.done_fp for o in self.outputs if o.done_fp.exists()]}, rerunning to generate all outputs"
+                )
 
         return True
 
     def _setup_run(self):
-        for output_obj in self.output_reads + list(self.extra_outputs.values()):
-            if not output_obj.fp.parent.exists():
-                output_obj.fp.parent.mkdir(parents=True)
+        # TODO: Probably need a step here to remove stale outputs before creating empty dirs
+        # avoid problems with tools that don't like overwriting existing files (e.g. megahit)
+        for o in self.outputs:
+            if not o.fp.parent.exists():
+                o.fp.parent.mkdir(parents=True)
 
         if not self.log_fp.parent.exists():
             self.log_fp.parent.mkdir(parents=True)
-
-        if not self.done_fp.parent.exists():
-            self.done_fp.parent.mkdir(parents=True)
 
     def _run(self, submit: bool = False, wait_for: list = None):
         if not self.dryrun:

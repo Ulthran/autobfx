@@ -30,4 +30,4 @@ def run_heyfastq(
 
     runner.run_cmd(cmd)
 
-    return 1
+    return cmd
