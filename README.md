@@ -25,3 +25,7 @@ Dev install from GitHub: `git clone https://github.com/Ulthran/autobfx/`
 Install (optionally in editable mode): `pip install -e .`
 
 Fun dummy run to see that it's working: `autobfx run tests/data/example_project/ logo:logo_flow`
+
+### Hidden directories
+
+There is a `.autobfx/` directory created in the root of the library that holds information on running services such as the Prefect server and workers. In each project directory there are also `.autobfx/` directories that store marker files with information on that project's task run states.

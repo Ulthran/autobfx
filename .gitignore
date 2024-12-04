@@ -1,13 +1,14 @@
 # Custom
 projects/
+.autobfx/
 autobfx_*.log
 autobfx_*.err
-tests/data/hosts/.*.done
 tests/data/hosts/*.fasta.amb
 tests/data/hosts/*.fasta.ann
 tests/data/hosts/*.fasta.bwt
 tests/data/hosts/*.fasta.pac
 tests/data/hosts/*.fasta.sa
+.*.done
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

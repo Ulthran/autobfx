@@ -2,49 +2,41 @@ import argparse
 import requests
 import subprocess
 import sys
+from autobfx.lib.daemon import check_daemon, start_daemon, stop_daemon
+from autobfx.scripts import DOT_FP
 from autobfx.scripts.server import LOCAL_HOST
+
+
+WORKER_PID_FP = lambda name, work_pool: DOT_FP / f"worker_{work_pool}_{name}.pid"
+SERVER_LOG_FP = lambda name, work_pool: DOT_FP / f"worker_{work_pool}_{name}_output.log"
+SERVER_ERR_FP = lambda name, work_pool: DOT_FP / f"worker_{work_pool}_{name}_output.err"
 
 
 def start_worker(name: str, work_pool: str, worker_type: str):
     """Start a Prefect worker."""
-    with (
-        open(f"autobfx_worker_{work_pool}_{name}_output.err", "w") as err_file,
-        open(f"autobfx_worker_{work_pool}_{name}_output.log", "w") as log_file,
-    ):
-        subprocess.Popen(
-            [
-                "nohup",
-                "prefect",
-                "worker",
-                "start",
-                "--name",
-                f"{name}",
-                "--pool",
-                f"{work_pool}",
-                "--type",
-                f"{worker_type}",
-            ],
-            stdout=log_file,
-            stderr=err_file,
-            start_new_session=True,
-        )
-        print(f"Prefect worker {name} in pool {work_pool} started.")
+    start_daemon(
+        [
+            "prefect",
+            "worker",
+            "start",
+            "--name",
+            f"{name}",
+            "--pool",
+            f"{work_pool}",
+            "--type",
+            f"{worker_type}",
+        ],
+        WORKER_PID_FP(name, work_pool),
+        SERVER_LOG_FP(name, work_pool),
+        SERVER_ERR_FP(name, work_pool),
+        lambda: print(f"Prefect worker {name} in pool {work_pool} started."),
+    )
 
 
 def stop_worker(name: str, work_pool: str):
     """Find the PID for a Prefect worker and stop it."""
-    result = subprocess.run(
-        ["pgrep", "-f", f"prefect worker --name {name} --pool {work_pool}"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    if result.returncode == 0:
-        pid = result.stdout.strip()
-        subprocess.run(["kill", pid])
-        print(f"Prefect worker {name} in pool {work_pool} stopped.")
-    else:
-        print(f"Prefect worker {name} in pool {work_pool} not found.")
+    stop_daemon(WORKER_PID_FP(name, work_pool))
+    print(f"Prefect worker {name} in pool {work_pool} stopped.")
 
 
 def worker_status(work_pool: str, host: str = LOCAL_HOST, port: int = 4200) -> bool:

@@ -33,8 +33,19 @@ def main():
         action="version",
         version=__version__,
     )
+    parser.add_argument(
+        "--list_flows", action="store_true", help="List available flows."
+    )
 
     args, remaining = parser.parse_known_args()
+
+    if args.list_flows:
+        from autobfx.flows import flows
+
+        print("Available flows:")
+        for flow in flows:
+            print(f"  {flow}")
+        return
 
     if args.command == "run":
         Run(remaining)

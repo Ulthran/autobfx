@@ -1,12 +1,19 @@
 import argparse
 import requests
+import os
+import signal
 import socket
 import subprocess
 import time
+from autobfx.lib.daemon import start_daemon, stop_daemon, check_daemon
+from autobfx.scripts import DOT_FP
 
 
 LOCAL_HOST = "127.0.0.1"
 DEFAULT_PORT = 4200
+SERVER_PID_FP = DOT_FP / "server.pid"
+SERVER_LOG_FP = DOT_FP / "server.log"
+SERVER_ERR_FP = DOT_FP / "server.err"
 
 
 def ping_server(host: str = LOCAL_HOST, port: int = DEFAULT_PORT) -> bool:
@@ -31,28 +38,16 @@ def check_port(host: str = LOCAL_HOST, port: int = DEFAULT_PORT) -> bool:
 def check_server_status(host: str = LOCAL_HOST, port: int = DEFAULT_PORT):
     """Check if the Prefect server is running and its HTTP status."""
     try:
-        # Use pgrep to find the PID of the Prefect server
-        result = subprocess.run(
-            ["pgrep", "-f", "prefect.server.api.server:create_app"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        server_pid = result.stdout.strip()
-
-        if not server_pid:
-            print("Prefect server is not running.")
-        else:
+        if pid := check_daemon(SERVER_PID_FP):
             # Check HTTP status of the Prefect server
             if ping_server(host, port):
-                print(
-                    f"Prefect server is running at PID {server_pid} "
-                    f"with status: 200 OK"
-                )
+                print(f"Prefect server is running at PID {pid} " f"with status: 200 OK")
             else:
                 print(
-                    f"Prefect server is running at PID {server_pid}, but HTTP status is unavailable."
+                    f"Prefect server is running at PID {pid}, but HTTP status is unavailable."
                 )
+        else:
+            print("Prefect server is not running.")
     except Exception as e:
         print(f"Error checking server status: {e}")
 
@@ -67,45 +62,50 @@ def start_server(
         return
     if not check_port(host, port):
         print(
-            f"Port {port} is already in use. This usually happens if quickly stop and start the server. If this is the case, wait a few seconds and try again. You can use `lsof -i :{port}` to see what process is using the port."
+            f"Port {port} is already in use. This usually happens if you quickly stop and start the server. If this is the case, wait a few seconds and try again. You can use `lsof -i :{port}` to see what process is using the port."
         )
         return
 
-    with (
-        open("autobfx_server_output.err", "w") as err_file,
-        open("autobfx_server_output.log", "w") as log_file,
-    ):
-        subprocess.Popen(
-            [
-                "nohup",
-                "prefect",
-                "server",
-                "start",
-                "--port",
-                str(port),
-                "--ui" if ui else "--no-ui",
-                "--background",
-            ],
-            stdout=log_file,
-            stderr=err_file,
-        )
-
-    if wait:
-        max_wait_time = 10
-        start_wait_time = time.time()
-        started = ping_server(host, port)
-        while not started:
+    def post_process():
+        if wait:
+            max_wait_time = 10
+            start_wait_time = time.time()
             started = ping_server(host, port)
-            if time.time() - start_wait_time > max_wait_time:
-                print(f"Server did not start within {max_wait_time} seconds.")
-                return
+            while not started:
+                started = ping_server(host, port)
+                if time.time() - start_wait_time > max_wait_time:
+                    print(f"Server did not start within {max_wait_time} seconds.")
+                    return
 
-    print("Prefect server started.")
+        print("Prefect server started.")
+
+    start_daemon(
+        [
+            "prefect",
+            "server",
+            "start",
+            "--port",
+            str(port),
+            "--ui" if ui else "--no-ui",
+            # "--background",
+        ],
+        SERVER_PID_FP,
+        SERVER_LOG_FP,
+        SERVER_ERR_FP,
+        post_process=post_process,
+    )
 
 
 def stop_server(host: str = LOCAL_HOST, port: int = DEFAULT_PORT, wait: bool = True):
     """Stop the Prefect server."""
-    # Verify that user has shut down workers
+    # TODO: Verify that user has shut down workers (or at least warn)
+
+    # Stops the `autobfx server start` command that is daemonized
+    daemon_pid = stop_daemon(SERVER_PID_FP)
+
+    # Stops the `prefect server start` command (should also stop the uvicorn process that is the actual server)
+    if daemon_pid:
+        os.kill(daemon_pid + 1, signal.SIGTERM)
 
     try:
         result = subprocess.run(
