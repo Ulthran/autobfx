@@ -1,3 +1,4 @@
+import networkx as nx
 from pathlib import Path
 from prefect import flow
 from autobfx.tasks.bwa import run_align_to_host, run_build_host_index
@@ -44,7 +45,11 @@ def BUILD_HOST_INDEX(config: Config, hosts: dict[str, Path] = None) -> AutobfxFl
         for host_name, fa in hosts_list.items()
     ]
 
-    return AutobfxFlow(config, NAME, tasks)
+    dag = nx.DiGraph()
+    for task in tasks:
+        dag.add_node(task)
+
+    return AutobfxFlow(config, NAME, dag)
 
 
 def ALIGN_TO_HOST(
@@ -90,7 +95,11 @@ def ALIGN_TO_HOST(
         for host_name, fa in hosts_list.items()
     ]
 
-    return AutobfxFlow(config, NAME, tasks)
+    dag = nx.DiGraph()
+    for task in tasks:
+        dag.add_node(task)
+
+    return AutobfxFlow(config, NAME, dag)
 
 
 @flow(name="build_host_index", log_prints=True)

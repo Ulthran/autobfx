@@ -1,143 +1,54 @@
-import argparse
-from pathlib import Path
-from prefect import flow, tags
-from prefect.deployments import run_deployment
-from prefect.states import Completed
-from autobfx.tasks.bwa import run_build_host_index, run_align_to_host
+import networkx as nx
 from autobfx.lib.config import Config
-from autobfx.lib.utils import (
-    gather_samples,
-    get_input_fp,
-    setup_step,
-)
+from autobfx.lib.flow import AutobfxFlow
+from autobfx.lib.io import IOReads
+from autobfx.flows.bwa import ALIGN_TO_HOST, BUILD_HOST_INDEX
+from autobfx.lib.utils import gather_samples
+from pathlib import Path
+from prefect import flow
 
 
 NAME = "decontam"
 
 
-@flow(name=NAME, log_prints=True)  # , task_runner=ThreadPoolTaskRunner(max_workers=5))
-def decontam_flow(
-    project_fp: Path,
-    config: Config,
-    samples: dict[str, Path] = {},
-    input_dependencies: dict = {},
-) -> list[Path]:
-    # Gather inputs
+def DECONTAM(
+    config: Config, samples: dict[str, IOReads] = None, hosts: dict[str, Path] = None
+) -> AutobfxFlow:
+    project_fp = config.project_fp
     samples_list = (
-        samples
-        if samples
-        else gather_samples(
-            get_input_fp(Path(config.flows[NAME].input), project_fp),
+        gather_samples(
+            config.flows["qc"].get_input_reads(project_fp)[0],
             config.paired_end,
+            config.samples,
         )
+        if samples is None
+        else samples
     )
-    hosts_list = [
-        x.resolve()
-        for x in Path(config.flows[NAME].parameters["hosts"]).glob("*.fasta")
-    ]
-
-    # Setup
-    build_host_index_input_fp, build_host_index_output_fp, build_host_index_log_fp = (
-        setup_step(project_fp, config, "build_host_index")
-    )
-    align_to_host_input_fp, align_to_host_output_fp, align_to_host_log_fp = setup_step(
-        project_fp, config, "align_to_host"
-    )
-    (
-        filter_host_reads_input_fp,
-        filter_host_reads_output_fp,
-        filter_host_reads_log_fp,
-    ) = setup_step(project_fp, config, "filter_host_reads")
-    (
-        preprocess_report_input_fp,
-        preprocess_report_output_fp,
-        preprocess_report_log_fp,
-    ) = setup_step(project_fp, config, "preprocess_report")
-
-    # Preprocess
-
-    # Run
-    build_host_index_results = {host_fp.stem: None for host_fp in hosts_list}
-    for host_fp in hosts_list:
-        with tags(host_fp.stem):
-            with tags("build_host_index"):
-                build_host_index_results[host_fp.stem] = run_build_host_index.submit(
-                    input_fp=host_fp,
-                    output_fp=build_host_index_output_fp / host_fp.name,
-                    log_fp=build_host_index_log_fp / f"{host_fp.stem}.log",
-                    env=config.flows["build_host_index"].env,
-                    **config.flows["build_host_index"].parameters,
-                )
-
-    align_to_host_results = {
-        (sample_name, host_fp.stem): None
-        for sample_name in samples_list.keys()
-        for host_fp in hosts_list
-    }
-    for sample_name, r1 in samples_list.items():
-        with tags(sample_name):
-            with tags("align_to_host"):
-                for host_fp in hosts_list:
-                    with tags(host_fp.stem):
-                        deps = (
-                            [
-                                input_dependencies[sample_name],
-                                build_host_index_results[host_fp.stem],
-                            ]
-                            if input_dependencies
-                            else [build_host_index_results[host_fp.stem]]
-                        )
-                        align_to_host_results[(sample_name, host_fp.stem)] = (
-                            run_align_to_host.submit(
-                                input_fp=r1,
-                                output_fp=align_to_host_output_fp
-                                / f"{sample_name}.sam",
-                                log_fp=align_to_host_log_fp / f"{sample_name}.log",
-                                host_fp=host_fp,
-                                env=config.flows["align_to_host"].env,
-                                paired_end=config.paired_end,
-                                **config.flows["align_to_host"].parameters,
-                                wait_for=deps,
-                            )
-                        )
-
-    # Postprocess
-
-    return align_to_host_results
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=f"Run {NAME}")
-    parser.add_argument("project_fp", type=str, help="Filepath to the project")
-    parser.add_argument(
-        "--samples",
-        nargs="*",
-        default=[],
-        help="Specific samples to run (provide full sample names e.g. 'sample1_R1.fastq.gz' as they appear in the input directory for this flow)",
-    )
-    args = parser.parse_args()
-    config = config_from_yaml(Path(args.project_fp).absolute() / "config.yaml")
-
-    samples = gather_samples(Path(config.flows[NAME].input), config.paired_end)
-    if args.samples:
-        samples = {k: v for k, v in samples.items() if Path(v).name in args.samples}
-        if missing := [x for x in args.samples if x not in samples.keys()]:
-            raise FileNotFoundError(f"Samples not found: {missing}")
-
-    decontam_flow.from_source(
-        source=str(Path(__file__).parent),
-        entrypoint="decontam.py:decontam_flow",
-    ).deploy(
-        name=f"{NAME}_deployment",
-        work_pool_name="default",
-        ignore_warnings=True,
+    hosts_list = (
+        {
+            x.stem: x.resolve()
+            for x in Path(
+                config.flows["align_to_host"].get_extra_inputs(project_fp)["hosts"][0]
+            ).glob("*.fasta")
+        }
+        if hosts is None
+        else hosts
     )
 
-    run_deployment(
-        f"{NAME}/{NAME}_deployment",
-        parameters={
-            "project_fp": Path(args.project_fp).absolute(),
-            "config": config,
-            "samples": samples,
-        },
-    )
+    build_host_index_flow = BUILD_HOST_INDEX(config, hosts=hosts_list)
+    align_to_host_flow = ALIGN_TO_HOST(config, samples=samples_list, hosts=hosts_list)
+    dag = nx.compose_all([build_host_index_flow.dag, align_to_host_flow.dag])
+
+    # Add dependencies between align_to_host and build_host_index tasks
+    for host_name, _ in hosts_list.items():
+        for align_to_host_task in [
+            n for n in align_to_host_flow.dag.nodes if host_name in n.ids
+        ]:
+            dag.add_edge(
+                [n for n in build_host_index_flow.dag.nodes if n.ids == (host_name,)][
+                    0
+                ],
+                align_to_host_task,
+            )
+
+    return AutobfxFlow(config, NAME, dag)

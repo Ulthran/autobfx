@@ -1,14 +1,25 @@
+import networkx as nx
 from autobfx.lib.config import Config
 from autobfx.lib.task import AutobfxTask
+from prefect import flow
 
 
 class AutobfxFlow:
-    def __init__(self, config: Config, name: str, tasks: list[AutobfxTask]):
+    def __init__(self, config: Config, name: str, dag: nx.DiGraph):
         self.config = config
         self.name = name
-        self.tasks = tasks
+        self.dag = dag
 
-    # TODO: This class needs to be reworked so that it can represent any portion of a flow
-    # that means it needs to expose a variable number of connectors on either end
-    # The principle components should be the flow itself and the iterators it expands over (expansion behavior is defined in the flow)
-    # It can then be connected (partially or fully) with another flow(s)
+        # Keeping this in the constructor so that it's easy to run pre/post processing around it down the line
+        @flow
+        def _flow():
+            submissions = [
+                t.submit(dependencies=dag.predecessors(t))
+                for t in nx.topological_sort(dag)
+            ]
+            return [s.result() for s in submissions]
+
+        self.flow = _flow
+
+    def run(self):
+        return self.flow()

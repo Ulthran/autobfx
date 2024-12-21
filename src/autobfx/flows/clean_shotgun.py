@@ -1,20 +1,13 @@
-import argparse
+import networkx as nx
 from pathlib import Path
-from prefect import flow, tags
-from prefect.deployments import run_deployment
-from prefect.states import Completed
-from autobfx.flows.qc import qc_flow
-from autobfx.flows.decontam import decontam_flow
-from autobfx.flows.trimmomatic import TRIMMOMATIC
+from prefect import flow
+from autobfx.flows.qc import QC
+from autobfx.flows.decontam import DECONTAM
 from autobfx.flows.bwa import BUILD_HOST_INDEX, ALIGN_TO_HOST
-from autobfx.flows.fastqc import FASTQC
-from autobfx.flows.heyfastq import HEYFASTQ
 from autobfx.lib.config import Config
 from autobfx.lib.flow import AutobfxFlow
 from autobfx.lib.utils import (
     gather_samples,
-    get_input_fp,
-    setup_step,
 )
 
 
@@ -33,45 +26,50 @@ def CLEAN_SHOTGUN(config: Config) -> AutobfxFlow:
         config.samples,
     )
 
-    trimmomatic_submissions = {
-        task.ids: task.submit()
-        for task in TRIMMOMATIC(config, samples=samples_list).tasks
-    }
-    heyfastq_submissions = {
-        task.ids: task.submit(wait_for=[trimmomatic_submissions[task.ids]])
-        for task in HEYFASTQ(config, samples=samples_list).tasks
-    }
-    fastqc_submissions = {
-        task.ids: task.submit(wait_for=[trimmomatic_submissions[task.ids]])
-        for task in FASTQC(config, samples=samples_list).tasks
-    }
+    # TODO: Can we create AutobfxIterator and AutobfxConnector classes to handle all this and have a cleaner API?
+    # We should be able to
+    # 1) Automatically generate singleton flows for a single task (over a set of iterators)
+    # 2) Easily connect to flows to create another
+    # Also though, this isn't bad for now, it's a bit complicated for a first layer of abstraction on custom flows
+    # but it's pretty good, we should focus on other things for now to get this into actual test environments
 
-    build_host_index_submissions = {
-        task.ids: task.submit()
-        for task in BUILD_HOST_INDEX(config, hosts=hosts_list).tasks
-    }
-    align_to_host_submissions = {
-        task.ids: task.submit(
-            wait_for=[
-                heyfastq_submissions[tuple([task.ids[0]])],
-                build_host_index_submissions[tuple([task.ids[1]])],
-            ]
-        )
-        for task in ALIGN_TO_HOST(config, samples=samples_list, hosts=hosts_list).tasks
-    }
+    qc_flow = QC(config, samples=samples_list)
+    build_host_index_flow = BUILD_HOST_INDEX(config, hosts=hosts_list)
+    align_to_host_flow = ALIGN_TO_HOST(config, samples=samples_list, hosts=hosts_list)
+    dag = nx.compose_all(
+        [qc_flow.dag, build_host_index_flow.dag, align_to_host_flow.dag]
+    )
 
-    # Combine on sample_name by waiting for {k: v for k, v in align_to_host_submissions if sample_name in k}
+    # Add dependencies between align_to_host and build_host_index tasks
+    for host_name, _ in hosts_list.items():
+        for align_to_host_task in [
+            n for n in align_to_host_flow.dag.nodes if host_name in n.ids
+        ]:
+            dag.add_edge(
+                [n for n in build_host_index_flow.dag.nodes if n.ids == (host_name,)][
+                    0
+                ],
+                align_to_host_task,
+            )
+
+    # Add dependencies between align_to_host and qc tasks
+    for sample_name, _ in samples_list.items():
+        for align_to_host_task in [
+            n for n in align_to_host_flow.dag.nodes if sample_name in n.ids
+        ]:
+            dag.add_edge(
+                [
+                    n
+                    for n in qc_flow.dag.nodes
+                    if n.ids == (sample_name,) and n.name == "heyfastq"
+                ][0],
+                align_to_host_task,
+            )
 
     return AutobfxFlow(
         config,
         NAME,
-        [
-            *trimmomatic_submissions.values(),
-            *heyfastq_submissions.values(),
-            *fastqc_submissions.values(),
-            *build_host_index_submissions.values(),
-            *align_to_host_submissions.values(),
-        ],
+        dag,
     )
 
 
@@ -79,5 +77,5 @@ def CLEAN_SHOTGUN(config: Config) -> AutobfxFlow:
 def clean_shotgun_flow(config: dict) -> list[Path]:
     # TODO: Fix this, should be submitting here not in CLEAN_SHOTGUN
     # Need to pass wait_for to here somehow, adjust AutobfxFlow to accept
-    submissions = [t for t in CLEAN_SHOTGUN(Config(**config)).tasks]
+    submissions = [t.submit() for t in CLEAN_SHOTGUN(Config(**config)).tasks]
     return [s.result() for s in submissions]

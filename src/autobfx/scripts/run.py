@@ -61,12 +61,16 @@ def main(argv) -> FlowRun:
     flow_id = args.flow
 
     os.makedirs(project_fp, exist_ok=True)
-    os.makedirs(project_fp / ".autobfx" / "done", exist_ok=True)
 
     config_source = SourceFileLoader(
         "config", str(Path(args.project_fp).absolute() / "config.py")
     ).load_module()
     config = Config(**config_source.config)
+
+    from autobfx.flows.clean_shotgun import CLEAN_SHOTGUN
+
+    CLEAN_SHOTGUN(config).run()
+    return
 
     from autobfx.flows import flows
     from autobfx.flows import root as main_root
@@ -92,7 +96,7 @@ def main(argv) -> FlowRun:
             main_root,
             update_deployment=args.update_deployment,
         )
-    except ConnectError as e:
+    except ConnectError:
         print("Couldn't connect to server, attempting to start it now...")
         Server(["start"])
         if not Worker(["status", "--work_pool", work_pool_name]):
@@ -116,3 +120,26 @@ def main(argv) -> FlowRun:
             main_root,
             update_deployment=args.update_deployment,
         )
+    except ValueError as e:
+        if "Could not find work pool" in str(e):
+            print("Couldn't find work pool, attempting to start worker now...")
+            Worker(
+                [
+                    "start",
+                    "--name",
+                    "default",
+                    "--work_pool",
+                    work_pool_name,
+                    "--type",
+                    worker_type,
+                ]
+            )
+            print("Trying to run flow again...")
+            deploy_and_run(
+                flow,
+                flow_id,
+                work_pool_name,
+                config,
+                main_root,
+                update_deployment=args.update_deployment,
+            )

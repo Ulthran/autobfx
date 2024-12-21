@@ -1,9 +1,21 @@
 import json
 from pathlib import Path
 from prefect import tags, task
+from pydantic import BaseModel
 from typing import Callable
 from autobfx.lib.io import IOObject, IOReads
 from autobfx.lib.runner import AutobfxRunner, DryRunner, LocalRunner, NoManager
+
+
+class AutobfxTaskDefinition(BaseModel):
+    """
+    Represents a task definition that hasn't been expanded over any iterators yet.
+    """
+
+    name: str
+    func: Callable
+    # Dependencies for a task definition are named lists of other task definitions to expand over
+    dependencies: dict[str, list["AutobfxTaskDefinition"]] = {}
 
 
 class AutobfxTask:
@@ -30,7 +42,6 @@ class AutobfxTask:
         self.ids = tuple(
             ids
         )  # Any identifiers for the task run e.g. (sample_name) or (sample_name, host_name)
-        # self.id_tuple: tuple[str, ...] = tuple(ids.values()) # For use as task tags or composite dictionary key
         self._func = func
         self.project_fp = project_fp
         self.input_reads = input_reads
@@ -47,6 +58,9 @@ class AutobfxTask:
         self.outputs = self.output_reads + [
             i for ioo in self.extra_outputs.values() for i in ioo
         ]
+        # submission is the Promise that is returned by submitting a task
+        # this is used for dependent tasks to wait on the completion of this task
+        self.submission = None
         self.log_fp = log_fp
         self.runner = runner
         self.runner.options["job_name"] = f"{self.name}_{'_'.join(self.ids)}"
@@ -77,6 +91,12 @@ class AutobfxTask:
             return cmd
 
         self._runner_func = _runner_func
+
+    def __hash__(self):
+        return hash((self.name, self.ids))
+
+    def __eq__(self, other):
+        return hash(self) == hash(other)
 
     def _check(self) -> bool:
         # Will probably want to raise this to the flow level once we figure out more better flow abstraction
@@ -110,33 +130,32 @@ class AutobfxTask:
         if not self.log_fp.parent.exists():
             self.log_fp.parent.mkdir(parents=True)
 
-    def _run(self, submit: bool = False, wait_for: list = None):
+    def run(self):
+        """Ignore dependencies and run the task"""
         if not self.dryrun:
             if not self._check():
-                if submit:
-
-                    class AlreadyDone:
-                        def result(self):
-                            return None
-
-                    return AlreadyDone()
-                else:
-                    return None
+                return None
 
             self._setup_run()
 
         with tags(self.name, *self.ids):
-            if submit:
-                return (
-                    self._runner_func.submit(wait_for=wait_for)
-                    if wait_for
-                    else self._runner_func.submit()
-                )
-            else:
-                return self._runner_func()
+            return self._runner_func()
 
-    def run(self):
-        return self._run()
+    def submit(self, dependencies: list["AutobfxTask"] = []):
+        """Submit the task for execution, submitting any dependencies first"""
+        if not self.dryrun:
+            if not self._check():
 
-    def submit(self, wait_for: list = None):
-        return self._run(submit=True, wait_for=wait_for)
+                class AlreadyDone:
+                    def result(self):
+                        return None
+
+                return AlreadyDone()
+
+            self._setup_run()
+
+        with tags(self.name, *self.ids):
+            self.submission = self._runner_func.submit(
+                wait_for=[d.submission for d in dependencies]
+            )
+            return self.submission

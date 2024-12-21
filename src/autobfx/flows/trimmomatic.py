@@ -1,3 +1,4 @@
+import networkx as nx
 from pathlib import Path
 from prefect import flow
 from autobfx.tasks.trimmomatic import run_trimmomatic
@@ -46,10 +47,16 @@ def TRIMMOMATIC(config: Config, samples: dict[str, IOReads] = None) -> AutobfxFl
         for sample_name, reads in samples_list.items()
     ]
 
-    return AutobfxFlow(config, NAME, tasks)
+    dag = nx.DiGraph()
+    for task in tasks:
+        dag.add_node(task)
+
+    return AutobfxFlow(config, NAME, dag)
 
 
 @flow(name=NAME, log_prints=True)
 def trimmomatic_flow(config: dict) -> list[Path]:
-    submissions = [task.submit() for task in TRIMMOMATIC(Config(**config)).tasks]
+    submissions = [
+        t.submit() for t in nx.topological_sort(TRIMMOMATIC(Config(**config)).dag)
+    ]
     return [s.result() for s in submissions]

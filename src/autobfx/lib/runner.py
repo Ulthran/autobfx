@@ -1,4 +1,6 @@
 import os
+import subprocess
+import time
 from abc import ABC, abstractmethod
 from prefect_shell import ShellOperation
 from simple_slurm import Slurm
@@ -249,6 +251,24 @@ class SLURMRunner(AutobfxRunner):
         self.swm = swm
         self.options = options
 
+    def _wait_for_job_completion(self, job_id: int) -> bool:
+        sacct_results = subprocess.run(
+            ["sacct", "-j", job_id, "--format=JobID,State,ExitCode"]
+        )
+        try:
+            if sacct_results.stdout.splitlines()[2].split()[1] in [
+                "COMPLETED",
+                "FAILED",
+                "CANCELLED",
+                "TIMEOUT",
+                "NODE_FAIL",
+            ]:
+                return True
+            return False
+        except Exception as e:
+            print(f"Error checking job status: {e}")
+            return False
+
     def run_cmd(self, cmd: list[str], options: dict = {}):
         opts = self.options.copy()
         opts.update(options)
@@ -268,10 +288,15 @@ class SLURMRunner(AutobfxRunner):
         for cmd in cmds[:-1]:
             slurm.add_cmd(cmd)
         job_id = slurm.sbatch(
-            cmds[-1], sbatch_cmd=params.parameters.get("sbatch_cmd", "sbatch")
+            cmds[-1],
+            sbatch_cmd=params.parameters.get(
+                "sbatch_cmd", "/home/ctbus/Penn/autobfx/slurm/sbatch"
+            ),
         )
 
         # Wait for job to finish
+        while not self._wait_for_job_completion(job_id):
+            time.sleep(10)
 
     def run_func(
         self, func: callable, args: list = [], kwargs: dict = {}, options: dict = {}

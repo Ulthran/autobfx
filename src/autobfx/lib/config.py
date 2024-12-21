@@ -75,6 +75,8 @@ class Config(BaseModel):
     paired_end: bool = True
     log_fp: str | Path = "logs"
     # benchmark_dir: str = "benchmark" # TODO: Is this even a good way of doing this? Explore alternatives
+    # rerun_strategy: str = "lazy" # TODO: Implement this (should find the latest complete outputs and start from there)
+    # other strategies might be "force" (to delete everything and rerun) or "strict" (to rerun everything once a missing output is found (even if outputs down the line exist, overwrite them))
     swm: str = "none"
     runner: str = "local"
     samples: dict[str, Path] = {}

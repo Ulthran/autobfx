@@ -1,11 +1,12 @@
-import argparse
+import networkx as nx
 from pathlib import Path
 from prefect import flow, tags
-from prefect.deployments import run_deployment
-from autobfx.tasks.trimmomatic import run_trimmomatic
-from autobfx.tasks.fastqc import run_fastqc
-from autobfx.tasks.heyfastq import run_heyfastq
+from autobfx.flows.fastqc import FASTQC
+from autobfx.flows.heyfastq import HEYFASTQ
+from autobfx.flows.trimmomatic import TRIMMOMATIC
 from autobfx.lib.config import Config
+from autobfx.lib.flow import AutobfxFlow
+from autobfx.lib.io import IOReads
 from autobfx.lib.utils import (
     gather_samples,
     get_input_fp,
@@ -16,100 +17,43 @@ from autobfx.lib.utils import (
 NAME = "qc"
 
 
-@flow(name=NAME, log_prints=True)  # , task_runner=ThreadPoolTaskRunner(max_workers=5))
-def qc_flow(
-    project_fp: Path, config: Config, samples: dict[str, Path] = {}
-) -> list[Path]:
+def QC(config: Config, samples: dict[str, IOReads] = None) -> AutobfxFlow:
+    project_fp = config.project_fp
     samples_list = (
-        samples
-        if samples
-        else gather_samples(
-            get_input_fp(Path(config.flows[NAME].input), project_fp),
+        gather_samples(
+            config.flows["trimmomatic"].get_input_reads(project_fp)[0],
             config.paired_end,
+            config.samples,
         )
+        if samples is None
+        else samples
     )
 
-    # Setup
-    trimmomatic_input_fp, trimmomatic_output_fp, trimmomatic_log_fp = setup_step(
-        project_fp, config, "trimmomatic"
-    )
-    heyfastq_input_fp, heyfastq_output_fp, heyfastq_log_fp = setup_step(
-        project_fp, config, "heyfastq"
-    )
-    fastqc_input_fp, fastqc_output_fp, fastqc_log_fp = setup_step(
-        project_fp, config, "fastqc"
-    )
+    # Compose all the DAGs into one (without edges)
+    trimmomatic_flow = TRIMMOMATIC(config, samples=samples_list)
+    heyfastq_flow = HEYFASTQ(config, samples=samples_list)
+    fastqc_flow = FASTQC(config, samples=samples_list)
+    dag = nx.compose_all([trimmomatic_flow.dag, heyfastq_flow.dag, fastqc_flow.dag])
 
-    # Preprocess
+    # Map each trimmomatic task to the corresponding heyfastq and fastqc tasks (based on sample_name which is the only id attribute for all these tasks)
+    for sample_name, _ in samples_list.items():
+        dag.add_edge(
+            [n for n in trimmomatic_flow.dag.nodes if n.ids == (sample_name,)][0],
+            [n for n in heyfastq_flow.dag.nodes if n.ids == (sample_name,)][0],
+        )
+        dag.add_edge(
+            [n for n in trimmomatic_flow.dag.nodes if n.ids == (sample_name,)][0],
+            [n for n in fastqc_flow.dag.nodes if n.ids == (sample_name,)][0],
+        )
 
-    # Run
-    results = {sample_name: {} for sample_name in samples_list.keys()}
-    for sample_name, r1 in samples_list.items():
-        with tags(sample_name):
-            with tags("trimmomatic"):
-                results[sample_name]["trimmomatic"] = run_trimmomatic.submit(
-                    input_fp=r1,
-                    output_fp=trimmomatic_output_fp / r1.name,
-                    log_fp=trimmomatic_log_fp / f"{sample_name}.log",
-                    env=config.flows["trimmomatic"].env,
-                    paired_end=config.paired_end,
-                    **config.flows["trimmomatic"].parameters,
-                )
-
-            with tags("heyfastq"):
-                results[sample_name]["heyfastq"] = run_heyfastq.submit(
-                    input_fp=r1,
-                    output_fp=heyfastq_output_fp / r1.name,
-                    log_fp=heyfastq_log_fp / f"{sample_name}.log",
-                    paired_end=config.paired_end,
-                    **config.flows["heyfastq"].parameters,
-                    wait_for=[results[sample_name]["trimmomatic"]],
-                )
-
-            with tags("fastqc"):
-                results[sample_name]["fastqc"] = run_fastqc.submit(
-                    input_fp=r1,
-                    output_fp=fastqc_output_fp / r1.name,
-                    log_fp=fastqc_log_fp / f"{sample_name}.log",
-                    env=config.flows["fastqc"].env,
-                    paired_end=config.paired_end,
-                    **config.flows["fastqc"].parameters,
-                    wait_for=[results[sample_name]["trimmomatic"]],
-                )
-
-    # Postprocess
-
-    return results
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=f"Run {NAME}")
-    parser.add_argument("project_fp", type=str, help="Filepath to the project")
-    parser.add_argument(
-        "--samples", nargs="*", default=[], help="Paths to samples to run"
-    )
-    args = parser.parse_args()
-    config = config_from_yaml(Path(args.project_fp).absolute() / "config.yaml")
-
-    samples = {}
-    if args.samples:
-        samples = {Path(sample).name: Path(sample).resolve() for sample in args.samples}
-
-    # qc_flow(project_fp=Path(args.project_fp).absolute(), config=config, samples=samples)
-    qc_flow.from_source(
-        source=str(Path(__file__).parent),
-        entrypoint="qc.py:qc_flow",
-    ).deploy(
-        name=f"{NAME}_deployment",
-        work_pool_name="default",
-        ignore_warnings=True,
+    return AutobfxFlow(
+        config,
+        NAME,
+        dag,
     )
 
-    run_deployment(
-        f"{NAME}/{NAME}_deployment",
-        parameters={
-            "project_fp": Path(args.project_fp).absolute(),
-            "config": config,
-            "samples": samples,
-        },
-    )
+
+@flow(name=NAME, log_prints=True)
+def qc_flow(config: dict) -> list[Path]:
+    submissions = [t.submit() for t in nx.topological_sort(QC(Config(**config)).dag)]
+    return [s.result() for s in submissions]

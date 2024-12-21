@@ -1,6 +1,7 @@
 import argparse
 import sys
 from autobfx import __version__
+from autobfx.scripts.ai import main as AI
 from autobfx.scripts.init import main as Init
 from autobfx.scripts.run import main as Run
 from autobfx.scripts.server import main as Server
