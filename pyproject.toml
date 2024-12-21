@@ -28,7 +28,7 @@ classifiers = [
 ]
 dependencies = [
     "networkx==3.4.2",
-    "prefect==3.0.1",
+    "prefect==3.1.9",
     "prefect[docker]",
     "prefect[shell]",
     "python-daemon==3.1.0",
