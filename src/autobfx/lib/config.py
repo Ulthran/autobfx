@@ -79,7 +79,7 @@ class Config(BaseModel):
     # other strategies might be "force" (to delete everything and rerun) or "strict" (to rerun everything once a missing output is found (even if outputs down the line exist, overwrite them))
     swm: str = "none"
     runner: str = "local"
-    samples: dict[str, Path] = {}
+    samples: dict[str, tuple[Path, ...]] = {}
     flows: dict[str, FlowConfig] = (
         {}
     )  # Consider something like 'trimmomatic:param_set_1' as a key that can be parsed to run the same flow with different parameter sets

@@ -14,8 +14,6 @@ class AutobfxTaskDefinition(BaseModel):
 
     name: str
     func: Callable
-    # Dependencies for a task definition are named lists of other task definitions to expand over
-    dependencies: dict[str, list["AutobfxTaskDefinition"]] = {}
 
 
 class AutobfxTask:
@@ -26,7 +24,7 @@ class AutobfxTask:
     def __init__(
         self,
         name: str,
-        ids: list[str],
+        ids: dict[str, str],
         func: Callable,
         project_fp: Path,
         input_reads: list[IOReads] = [],
@@ -39,9 +37,10 @@ class AutobfxTask:
         kwargs: dict = {},
     ):
         self.name = name  # The task name e.g. "trimmomatic"
+        self.id_dict = ids  # A dictionary of identifiers for the task run e.g. {"sample_name": "sample1", "host_name": "host1"}
         self.ids = tuple(
-            ids
-        )  # Any identifiers for the task run e.g. (sample_name) or (sample_name, host_name)
+            ids.values()
+        )  # A hashable form of the task ids e.g. (sample_name) or (sample_name, host_name)
         self._func = func
         self.project_fp = project_fp
         self.input_reads = input_reads

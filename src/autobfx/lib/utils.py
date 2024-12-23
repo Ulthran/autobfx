@@ -2,42 +2,7 @@ import ast
 from pathlib import Path
 from autobfx.lib.config import Config, FlowConfig
 from autobfx.lib.io import IOReads
-
-
-def gather_samples(
-    fp: Path, paired_end: bool, samples: dict[str, str | Path]
-) -> dict[str, IOReads]:
-    if samples:
-        return {n: IOReads(fp) for n, fp in samples.items()}
-    if paired_end:
-        r1 = [x.resolve() for x in fp.glob("*.fastq.gz") if "_R1" in x.name]
-        r2 = [x.resolve() for x in fp.glob("*.fastq.gz") if "_R2" in x.name]
-        sample_names = [x.name.split("_R1")[0] for x in r1]
-        sample_names_2 = [x.name.split("_R2")[0] for x in r2]
-        if sample_names != sample_names_2:
-            print(sample_names)
-            print(sample_names_2)
-            raise ValueError(f"Sample names do not match in {fp}")
-        if len(sample_names) != len(set(sample_names)):
-            print(sample_names)
-            raise ValueError(
-                f"Duplicate sample names in {fp} (Only what's in front of '_R1'/'_R2' is considered)"
-            )
-
-        if len(r1) != len(r2):
-            print(r1)
-            print(r2)
-            raise ValueError(f"Number of R1 and R2 files do not match in {fp}")
-
-        return {x: IOReads(y, z) for x, y, z in zip(sample_names, r1, r2)}
-    else:
-        r1 = list(fp.glob("*.fastq.gz"))
-        sample_names = [x.name.split(".fastq")[0] for x in r1]
-        if len(sample_names) != len(set(sample_names)):
-            print(sample_names)
-            raise ValueError(f"Duplicate sample names in {fp}")
-
-        return {x: IOReads(y) for x, y in zip(sample_names, r1)}
+from autobfx.lib.iterator import AutobfxIterator
 
 
 def get_input_fp(input_fp: Path, project_fp: Path) -> Path:

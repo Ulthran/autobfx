@@ -67,9 +67,17 @@ def main(argv) -> FlowRun:
     ).load_module()
     config = Config(**config_source.config)
 
+    from autobfx.flows.bwa import ALIGN_TO_HOST, BUILD_HOST_INDEX
     from autobfx.flows.clean_shotgun import CLEAN_SHOTGUN
+    from autobfx.flows.decontam import DECONTAM
+    from autobfx.flows.qc import QC
+    from autobfx.flows.trimmomatic import TRIMMOMATIC
 
+    # ALIGN_TO_HOST(config).run()
     CLEAN_SHOTGUN(config).run()
+    # DECONTAM(config).run()
+    # QC(config).run()
+    # TRIMMOMATIC(config).run()
     return
 
     from autobfx.flows import flows

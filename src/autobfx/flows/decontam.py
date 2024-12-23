@@ -2,53 +2,43 @@ import networkx as nx
 from autobfx.lib.config import Config
 from autobfx.lib.flow import AutobfxFlow
 from autobfx.lib.io import IOReads
+from autobfx.lib.iterator import AutobfxIterator, SampleIterator
 from autobfx.flows.bwa import ALIGN_TO_HOST, BUILD_HOST_INDEX
-from autobfx.lib.utils import gather_samples
 from pathlib import Path
-from prefect import flow
 
 
 NAME = "decontam"
 
 
 def DECONTAM(
-    config: Config, samples: dict[str, IOReads] = None, hosts: dict[str, Path] = None
+    config: Config, samples: SampleIterator = None, hosts: AutobfxIterator = None
 ) -> AutobfxFlow:
-    project_fp = config.project_fp
-    samples_list = (
-        gather_samples(
-            config.flows["qc"].get_input_reads(project_fp)[0],
-            config.paired_end,
-            config.samples,
-        )
-        if samples is None
-        else samples
+    sample_iterator = SampleIterator.gather_samples(
+        config.flows["align_to_host"].get_input_reads(config.project_fp)[0],
+        config.paired_end,
+        config.samples,
+        samples,
     )
-    hosts_list = (
+    host_iterator = AutobfxIterator.gather(
+        "host",
         {
             x.stem: x.resolve()
             for x in Path(
-                config.flows["align_to_host"].get_extra_inputs(project_fp)["hosts"][0]
+                config.flows["align_to_host"].get_extra_inputs(config.project_fp)[
+                    "hosts"
+                ][0]
             ).glob("*.fasta")
-        }
-        if hosts is None
-        else hosts
+        },
+        hosts,
     )
 
-    build_host_index_flow = BUILD_HOST_INDEX(config, hosts=hosts_list)
-    align_to_host_flow = ALIGN_TO_HOST(config, samples=samples_list, hosts=hosts_list)
-    dag = nx.compose_all([build_host_index_flow.dag, align_to_host_flow.dag])
+    flow = AutobfxFlow.compose_flows(
+        NAME,
+        [
+            BUILD_HOST_INDEX(config, hosts=host_iterator),
+            ALIGN_TO_HOST(config, samples=sample_iterator, hosts=host_iterator),
+        ],
+    )
+    flow.connect_one_to_many(host_iterator, "build_host_index", "align_to_host")
 
-    # Add dependencies between align_to_host and build_host_index tasks
-    for host_name, _ in hosts_list.items():
-        for align_to_host_task in [
-            n for n in align_to_host_flow.dag.nodes if host_name in n.ids
-        ]:
-            dag.add_edge(
-                [n for n in build_host_index_flow.dag.nodes if n.ids == (host_name,)][
-                    0
-                ],
-                align_to_host_task,
-            )
-
-    return AutobfxFlow(config, NAME, dag)
+    return flow
