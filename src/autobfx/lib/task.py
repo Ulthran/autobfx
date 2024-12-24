@@ -28,9 +28,9 @@ class AutobfxTask:
         func: Callable,
         project_fp: Path,
         input_reads: list[IOReads] = [],
-        extra_inputs: dict[str, list[Path]] = {},
+        extra_inputs: dict[str, list[IOObject]] = {},
         output_reads: list[IOReads] = [],
-        extra_outputs: dict[str, list[Path]] = {},
+        extra_outputs: dict[str, list[IOObject]] = {},
         log_fp: Path = Path(),
         runner: AutobfxRunner = LocalRunner(swm=NoManager()),
         args: list = [],
@@ -44,16 +44,12 @@ class AutobfxTask:
         self._func = func
         self.project_fp = project_fp
         self.input_reads = input_reads
-        self.extra_inputs = {
-            k: [IOObject(x) for x in v] for k, v in extra_inputs.items()
-        }
+        self.extra_inputs = extra_inputs
         self.inputs = self.input_reads + [
             i for ioo in self.extra_inputs.values() for i in ioo
         ]
         self.output_reads = output_reads
-        self.extra_outputs = {
-            k: [IOObject(x) for x in v] for k, v in extra_outputs.items()
-        }
+        self.extra_outputs = extra_outputs
         self.outputs = self.output_reads + [
             i for ioo in self.extra_outputs.values() for i in ioo
         ]

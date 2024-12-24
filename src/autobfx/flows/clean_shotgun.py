@@ -1,43 +1,47 @@
-import networkx as nx
 from pathlib import Path
-from prefect import flow
 from autobfx.flows.qc import QC
 from autobfx.flows.decontam import DECONTAM
 from autobfx.lib.config import Config
 from autobfx.lib.flow import AutobfxFlow
-from autobfx.lib.iterator import SampleIterator, AutobfxIterator
+from autobfx.lib.iterator import AutobfxIterator
 
 
 NAME = "clean_shotgun"
 
 
 def CLEAN_SHOTGUN(
-    config: Config, samples: SampleIterator = None, hosts: AutobfxIterator = None
+    config: Config,
+    sample_iterator: AutobfxIterator = None,
+    host_iterator: AutobfxIterator = None,
 ) -> AutobfxFlow:
-    sample_iterator = SampleIterator.gather_samples(
+    input_reads = AutobfxFlow.gather_samples(
         config.flows["trimmomatic"].get_input_reads(config.project_fp)[0],
         config.paired_end,
         config.samples,
-        samples,
+        sample_iterator,
+    )
+    extra_inputs = AutobfxFlow.gather_files(
+        config.flows["build_host_index"].get_extra_inputs(config.project_fp)["hosts"][
+            0
+        ],
+        "fasta",
+        host_iterator,
+    )
+    sample_iterator = AutobfxIterator.gather(
+        [{"sample": s} for s, _ in input_reads.items()], sample_iterator
     )
     host_iterator = AutobfxIterator.gather(
-        "host",
-        {
-            x.stem: x.resolve()
-            for x in Path(
-                config.flows["align_to_host"].get_extra_inputs(config.project_fp)[
-                    "hosts"
-                ][0]
-            ).glob("*.fasta")
-        },
-        hosts,
+        [{"host": host_name} for host_name in extra_inputs.keys()],
+        host_iterator,
     )
 
     flow = AutobfxFlow.compose_flows(
         NAME,
         [
-            QC(config, samples=sample_iterator),
-            DECONTAM(config, samples=sample_iterator, hosts=host_iterator),
+            QC(config, sample_iterator=sample_iterator),
+            DECONTAM(
+                config, sample_iterator=sample_iterator, host_iterator=host_iterator
+            ),
         ],
     )
     flow.connect_one_to_many(sample_iterator, "heyfastq", "align_to_host")

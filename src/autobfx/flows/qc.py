@@ -3,26 +3,30 @@ from autobfx.flows.heyfastq import HEYFASTQ
 from autobfx.flows.trimmomatic import TRIMMOMATIC
 from autobfx.lib.config import Config
 from autobfx.lib.flow import AutobfxFlow
-from autobfx.lib.iterator import AutobfxIterator, SampleIterator
+from autobfx.lib.io import IOReads
+from autobfx.lib.iterator import AutobfxIterator
 
 
 NAME = "qc"
 
 
-def QC(config: Config, samples: SampleIterator = None) -> AutobfxFlow:
-    sample_iterator = SampleIterator.gather_samples(
+def QC(config: Config, sample_iterator: AutobfxIterator = None) -> AutobfxFlow:
+    input_reads = AutobfxFlow.gather_samples(
         config.flows["trimmomatic"].get_input_reads(config.project_fp)[0],
         config.paired_end,
         config.samples,
-        samples,
+        sample_iterator,
+    )
+    sample_iterator = AutobfxIterator.gather(
+        [{"sample": s} for s, _ in input_reads.items()], sample_iterator
     )
 
     flow = AutobfxFlow.compose_flows(
         NAME,
         [
-            TRIMMOMATIC(config, samples=sample_iterator),
-            HEYFASTQ(config, samples=sample_iterator),
-            FASTQC(config, samples=sample_iterator),
+            TRIMMOMATIC(config, sample_iterator=sample_iterator),
+            HEYFASTQ(config, sample_iterator=sample_iterator),
+            FASTQC(config, sample_iterator=sample_iterator),
         ],
     )
 
