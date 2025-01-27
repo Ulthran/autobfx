@@ -32,7 +32,7 @@ dependencies = [
     "prefect[docker]",
     "prefect[shell]",
     "python-daemon==3.1.0",
-    "simple-slurm==0.2.7",
+    "simple-slurm==0.3.3",
 ]
 
 [project.optional-dependencies]
